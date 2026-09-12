@@ -180,6 +180,30 @@ class GameStore {
     forceSave() {
         this.persist();
     }
+    exportSave() {
+        return {
+            version: SAVE_VERSION,
+            savedAtMonth: this.career.clockMonth,
+            career: this.career,
+        };
+    }
+    importSave(raw) {
+        if (!raw || typeof raw !== "object") {
+            return { ok: false, reason: "That file doesn't look like a Steward save." };
+        }
+        const candidate = raw;
+        const career = candidate.career ?? raw;
+        if (!career ||
+            typeof career !== "object" ||
+            !career.jurisdiction ||
+            typeof career.clockMonth !== "number") {
+            return { ok: false, reason: "That file doesn't look like a Steward save." };
+        }
+        this.career = career;
+        this.scheduleTick();
+        this.notify();
+        return { ok: true };
+    }
 }
 export const store = new GameStore();
 //# sourceMappingURL=store.js.map

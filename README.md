@@ -8,7 +8,32 @@ fiscal management, not by winning campaigns.
 
 Single-page, no backend, autosaves to `localStorage`.
 
-## Running it
+## Playing it on the web (GitHub Pages)
+
+This repo is set up to run directly from GitHub Pages — no build step, no
+server to manage. One-time setup (GitHub doesn't expose this as something
+that can be turned on via a git push, only from the repo's own settings UI):
+
+1. On GitHub, open **Settings → Pages** on this repository.
+2. Under "Build and deployment", set **Source: Deploy from a branch**.
+3. Branch: `claude/zen-ramanujan-oqfrev` (or `main`, once this is merged),
+   folder: `/ (root)`. Save.
+4. GitHub gives you a URL like `https://<your-username>.github.io/Steward/`.
+   That's it — open it on your Mac and iPhone.
+
+On iPhone, open that URL in Safari, tap Share → **Add to Home Screen**. It'll
+install with its own icon and open full-screen (no Safari address bar), the
+same way as any bookmarked web app. The same URL works on Mac Safari too.
+
+**Saves are per-browser, not shared between devices.** Since this has no
+backend, your Mac and iPhone each have their own local save. Use
+**Settings → Export Save (.json)** to download a backup, put it wherever you
+sync files between your devices (iCloud Drive works fine), and
+**Settings → Import Save (.json)** on the other device to pick it back up.
+This is also your safety net if browser storage ever gets cleared or a save
+grows too large for it to hold reliably.
+
+## Running it locally (for development)
 
 The compiled app is checked in under `dist/js/`, so you can serve the repo root
 with any static file server and open it:

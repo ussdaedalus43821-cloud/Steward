@@ -1,0 +1,15 @@
+{
+  "name": "Steward",
+  "short_name": "Steward",
+  "description": "Run the finances of a town, county, state, or country as a career public administrator.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0e1930",
+  "theme_color": "#10192b",
+  "icons": [
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

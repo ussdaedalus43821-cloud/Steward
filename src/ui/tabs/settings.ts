@@ -32,8 +32,13 @@ export function renderSettings(container: HTMLElement): void {
       </div>
       <div class="card">
         <h3>Save Data</h3>
-        <p class="field-hint">Steward autosaves to your browser's local storage after every change and every simulated month.</p>
+        <p class="field-hint">Steward autosaves to this browser's local storage after every change and every simulated month. Browser storage isn't shared between devices (or reliably kept forever by Safari on iOS for a large save) — export a backup file periodically and import it on another device to carry a career across your Mac and iPhone.</p>
         <button class="btn secondary" id="force-save-btn">Save Now</button>
+        <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+          <button class="btn secondary" id="export-btn">Export Save (.json)</button>
+          <button class="btn secondary" id="import-btn">Import Save (.json)</button>
+          <input type="file" id="import-file-input" accept="application/json,.json" style="display:none;" />
+        </div>
         <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);" />
         <button class="btn danger" id="reset-btn">Start New Career (reset everything)</button>
       </div>
@@ -51,6 +56,50 @@ export function renderSettings(container: HTMLElement): void {
     store.forceSave();
     alert("Saved.");
   });
+
+  container.querySelector("#export-btn")?.addEventListener("click", () => {
+    const save = store.exportSave();
+    const blob = new Blob([JSON.stringify(save, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const jurisName = save.career.jurisdiction.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `steward-save-${jurisName}-${dateStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  const fileInput = container.querySelector<HTMLInputElement>("#import-file-input");
+  container.querySelector("#import-btn")?.addEventListener("click", () => {
+    fileInput?.click();
+  });
+  fileInput?.addEventListener("change", () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    if (!confirm("Importing will replace your current career on this device. Continue?")) {
+      fileInput.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result));
+        const result = store.importSave(parsed);
+        if (!result.ok) {
+          alert(result.reason ?? "Could not import that file.");
+        }
+      } catch (e) {
+        alert("Could not read that file as JSON.");
+      } finally {
+        fileInput.value = "";
+      }
+    };
+    reader.readAsText(file);
+  });
+
   container.querySelector("#reset-btn")?.addEventListener("click", () => {
     if (confirm("This will permanently erase your current career. Are you sure?")) {
       store.resetCareer();

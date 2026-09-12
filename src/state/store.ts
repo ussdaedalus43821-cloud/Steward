@@ -218,6 +218,34 @@ class GameStore {
   forceSave(): void {
     this.persist();
   }
+
+  exportSave(): SaveFile {
+    return {
+      version: SAVE_VERSION,
+      savedAtMonth: this.career.clockMonth,
+      career: this.career,
+    };
+  }
+
+  importSave(raw: unknown): { ok: boolean; reason?: string } {
+    if (!raw || typeof raw !== "object") {
+      return { ok: false, reason: "That file doesn't look like a Steward save." };
+    }
+    const candidate = raw as Partial<SaveFile>;
+    const career = candidate.career ?? (raw as CareerState);
+    if (
+      !career ||
+      typeof career !== "object" ||
+      !(career as CareerState).jurisdiction ||
+      typeof (career as CareerState).clockMonth !== "number"
+    ) {
+      return { ok: false, reason: "That file doesn't look like a Steward save." };
+    }
+    this.career = career as CareerState;
+    this.scheduleTick();
+    this.notify();
+    return { ok: true };
+  }
 }
 
 export const store = new GameStore();
