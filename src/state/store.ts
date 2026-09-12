@@ -29,6 +29,7 @@ class GameStore {
   rng: Rng;
   private listeners: Listener[] = [];
   private timer: ReturnType<typeof setTimeout> | null = null;
+  private lastActiveSpeed: ClockSpeed = 1;
 
   constructor() {
     this.rng = new Rng(Date.now() ^ 0x9e3779b9);
@@ -98,9 +99,19 @@ class GameStore {
 
   // ---- Time controls ----
   setClockSpeed(speed: ClockSpeed): void {
+    if (speed !== 0) this.lastActiveSpeed = speed;
     this.career.clockSpeed = speed;
     this.scheduleTick();
     this.notify();
+  }
+
+  togglePause(): void {
+    if (this.career.clockSpeed === 0) {
+      this.setClockSpeed(this.lastActiveSpeed);
+    } else {
+      this.lastActiveSpeed = this.career.clockSpeed;
+      this.setClockSpeed(0);
+    }
   }
 
   // ---- Tax & budget ----

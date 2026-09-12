@@ -12,6 +12,7 @@ class GameStore {
     constructor() {
         this.listeners = [];
         this.timer = null;
+        this.lastActiveSpeed = 1;
         this.rng = new Rng(Date.now() ^ 0x9e3779b9);
         this.career = this.loadOrCreate();
         this.scheduleTick();
@@ -77,9 +78,20 @@ class GameStore {
     }
     // ---- Time controls ----
     setClockSpeed(speed) {
+        if (speed !== 0)
+            this.lastActiveSpeed = speed;
         this.career.clockSpeed = speed;
         this.scheduleTick();
         this.notify();
+    }
+    togglePause() {
+        if (this.career.clockSpeed === 0) {
+            this.setClockSpeed(this.lastActiveSpeed);
+        }
+        else {
+            this.lastActiveSpeed = this.career.clockSpeed;
+            this.setClockSpeed(0);
+        }
     }
     // ---- Tax & budget ----
     setTaxRate(key, value) {

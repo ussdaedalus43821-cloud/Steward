@@ -71,3 +71,12 @@ function render(): void {
 
 store.subscribe(render);
 render();
+
+window.addEventListener("keydown", (e) => {
+  if (e.code !== "Space" || e.repeat) return;
+  const target = e.target as HTMLElement | null;
+  const tag = target?.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target?.isContentEditable) return;
+  e.preventDefault();
+  store.togglePause();
+});

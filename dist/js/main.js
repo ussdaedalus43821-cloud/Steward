@@ -61,4 +61,14 @@ function render() {
 }
 store.subscribe(render);
 render();
+window.addEventListener("keydown", (e) => {
+    if (e.code !== "Space" || e.repeat)
+        return;
+    const target = e.target;
+    const tag = target?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target?.isContentEditable)
+        return;
+    e.preventDefault();
+    store.togglePause();
+});
 //# sourceMappingURL=main.js.map
