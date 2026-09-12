@@ -2,6 +2,7 @@ import type { GameEvent, PlayerJurisdiction } from "../types.js";
 import { nextId } from "../utils/id.js";
 import { clamp } from "../utils/format.js";
 import type { Rng } from "../utils/random.js";
+import { estimatedAnnualExpenditure } from "./fiscal.js";
 
 export interface EconomyState {
   cyclePosition: number;
@@ -33,12 +34,19 @@ export function tickRandomEvents(
   rng: Rng
 ): GameEvent[] {
   const events: GameEvent[] = [];
-  const scale = Math.max(1, j.population / 25000);
+  // Damage costs scale off this jurisdiction's OWN budget (a % of annual revenue), not a
+  // flat dollar figure calibrated for a mid-size city — a hamlet and a state should each
+  // take a proportional hit, not the same absolute repair bill.
+  const budgetScale = Math.max(
+    j.generalFund.lastYearRevenue,
+    j.generalFund.ytdRevenue * 12,
+    estimatedAnnualExpenditure(j)
+  );
 
   if (rng.chance(0.012)) {
     const severity = rng.chance(0.35) ? "major" : "moderate";
     const damage = severity === "major" ? rng.range(9, 18) : rng.range(3, 8);
-    const cost = (severity === "major" ? rng.range(1.2, 2.4) : rng.range(0.3, 0.8)) * scale * 500000;
+    const cost = (severity === "major" ? rng.range(0.08, 0.18) : rng.range(0.02, 0.06)) * budgetScale;
     j.vitals.infrastructureCondition = clamp(j.vitals.infrastructureCondition - damage, 0, 100);
     j.generalFund.fundBalance -= cost;
     j.generalFund.ytdExpenditures += cost;
