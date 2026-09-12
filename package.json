@@ -1,0 +1,13 @@
+{
+  "name": "steward",
+  "version": "0.1.0",
+  "description": "Steward — a browser-based public administrator simulation. Dependency-free TypeScript + DOM, no build tooling required beyond tsc.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch",
+    "serve": "npx --yes serve -l 5173 .",
+    "start": "npm run build && npm run serve"
+  }
+}

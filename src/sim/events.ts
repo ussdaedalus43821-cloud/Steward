@@ -1,0 +1,101 @@
+import type { GameEvent, PlayerJurisdiction } from "../types.js";
+import { nextId } from "../utils/id.js";
+import { clamp } from "../utils/format.js";
+import type { Rng } from "../utils/random.js";
+
+export interface EconomyState {
+  cyclePosition: number;
+  multiplier: number;
+}
+
+const CYCLE_LENGTH_MONTHS = 84;
+const CYCLE_AMPLITUDE = 0.14;
+
+export function advanceEconomyCycle(state: EconomyState): void {
+  state.cyclePosition = (state.cyclePosition + 1 / CYCLE_LENGTH_MONTHS) % 1;
+  state.multiplier = 1 + CYCLE_AMPLITUDE * Math.sin(2 * Math.PI * state.cyclePosition);
+}
+
+function makeEvent(
+  month: number,
+  title: string,
+  description: string,
+  kind: GameEvent["kind"],
+  severity: GameEvent["severity"]
+): GameEvent {
+  return { id: nextId("evt"), month, title, description, kind, severity };
+}
+
+export function tickRandomEvents(
+  j: PlayerJurisdiction,
+  currentMonth: number,
+  economyMultiplier: number,
+  rng: Rng
+): GameEvent[] {
+  const events: GameEvent[] = [];
+  const scale = Math.max(1, j.population / 25000);
+
+  if (rng.chance(0.012)) {
+    const severity = rng.chance(0.35) ? "major" : "moderate";
+    const damage = severity === "major" ? rng.range(9, 18) : rng.range(3, 8);
+    const cost = (severity === "major" ? rng.range(1.2, 2.4) : rng.range(0.3, 0.8)) * scale * 500000;
+    j.vitals.infrastructureCondition = clamp(j.vitals.infrastructureCondition - damage, 0, 100);
+    j.generalFund.fundBalance -= cost;
+    j.generalFund.ytdExpenditures += cost;
+    j.netPositionTracked -= cost;
+    events.push(
+      makeEvent(
+        currentMonth,
+        severity === "major" ? "Major Storm Damage" : "Storm Damage",
+        `A ${severity === "major" ? "severe storm" : "storm"} damaged infrastructure and cost emergency repairs.`,
+        "storm",
+        severity === "major" ? "danger" : "warning"
+      )
+    );
+  }
+
+  if (rng.chance(0.01)) {
+    const opening = rng.chance(0.55);
+    const magnitude = rng.range(6, 18);
+    j.vitals.economicHealth = clamp(
+      j.vitals.economicHealth + (opening ? magnitude : -magnitude),
+      10,
+      160
+    );
+    events.push(
+      makeEvent(
+        currentMonth,
+        opening ? "Major Employer Opens" : "Major Employer Closes",
+        opening
+          ? "A large employer has opened operations, boosting the local tax base."
+          : "A large employer has closed or relocated, shrinking the local tax base.",
+        "employer",
+        opening ? "good" : "warning"
+      )
+    );
+  }
+
+  if (economyMultiplier < 0.92 && rng.chance(0.02)) {
+    events.push(
+      makeEvent(
+        currentMonth,
+        "Regional Recession",
+        "Cyclical revenue (sales/income tax) is running well below trend.",
+        "economy",
+        "warning"
+      )
+    );
+  } else if (economyMultiplier > 1.08 && rng.chance(0.02)) {
+    events.push(
+      makeEvent(
+        currentMonth,
+        "Economic Boom",
+        "Cyclical revenue is running well above trend.",
+        "economy",
+        "good"
+      )
+    );
+  }
+
+  return events;
+}
