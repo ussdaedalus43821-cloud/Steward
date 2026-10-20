@@ -162,7 +162,11 @@ function runAnnualClose(career: CareerState, rng: Rng): GameEvent[] {
 
   ensureDepartmentBudgets(j, tierConfig);
   ensureEnterpriseFunds(j);
-  j.grantPoolRemaining = j.generalFund.lastYearRevenue * 0.04;
+  // Unused grant money carries forward (capped, so an untouched pool can't grow forever) —
+  // it should not silently reset to a tiny annual trickle if you haven't spent it yet.
+  const annualGrantAllocation = j.generalFund.lastYearRevenue * 0.04;
+  const grantPoolCap = j.generalFund.lastYearRevenue * 3;
+  j.grantPoolRemaining = Math.min(j.grantPoolRemaining + annualGrantAllocation, grantPoolCap);
 
   if (isEmergencyManagerTriggered(career)) {
     const record = buildTenureRecord(j, "emergency_manager");
