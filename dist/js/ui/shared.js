@@ -19,6 +19,36 @@ export function progressBar(pct, color) {
     const clamped = Math.max(0, Math.min(100, pct));
     return `<div class="progress"><div style="width:${clamped}%;${color ? `background:${color};` : ""}"></div></div>`;
 }
+/** A range slider paired with a number input showing/editing the same value — sliders alone
+ * are hard to land on an exact number, especially on a touchscreen, so every control that
+ * uses this always offers direct numeric entry as well. */
+export function dualInputRow(attr, key, value, min, max, step) {
+    return `<div class="dual-input">
+    <input type="range" min="${min}" max="${max}" step="${step}" value="${value}" data-${attr}="${key}" />
+    <input type="number" min="${min}" max="${max}" step="${step}" value="${value}" data-${attr}="${key}" class="number-twin" />
+  </div>`;
+}
+export function wireDualInputs(container, attr, onChange) {
+    const groups = new Map();
+    container.querySelectorAll(`input[data-${attr}]`).forEach((input) => {
+        const key = input.dataset[attr] ?? "";
+        if (!groups.has(key))
+            groups.set(key, []);
+        groups.get(key).push(input);
+    });
+    groups.forEach((inputs, key) => {
+        inputs.forEach((input) => {
+            input.addEventListener("input", () => {
+                const value = Number(input.value);
+                for (const other of inputs) {
+                    if (other !== input)
+                        other.value = String(value);
+                }
+                onChange(key, value);
+            });
+        });
+    });
+}
 export function card(title, inner, subtitle) {
     return `<div class="card"><h3>${escapeHtml(title)}</h3>${subtitle ? `<div class="subtitle">${escapeHtml(subtitle)}</div>` : ""}${inner}</div>`;
 }

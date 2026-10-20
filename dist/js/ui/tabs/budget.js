@@ -2,7 +2,7 @@ import { store } from "../../state/store.js";
 import { formatMoney } from "../../utils/format.js";
 import { computeAnnualBudget } from "../../sim/fiscal.js";
 import { getTierConfig, stageAtLeast } from "../../sim/constants.js";
-import { badge } from "../shared.js";
+import { badge, dualInputRow, wireDualInputs } from "../shared.js";
 export function renderBudget(container) {
     const j = store.career.jurisdiction;
     const tierConfig = getTierConfig(j.tier);
@@ -63,20 +63,14 @@ export function renderBudget(container) {
       </table>
     </div>
   `;
-    container.querySelectorAll("input[data-rate]").forEach((input) => {
-        input.addEventListener("input", () => {
-            const key = input.dataset.rate;
-            store.setTaxRate(key, Number(input.value));
-            const valueEl = container.querySelector(`span[data-rate-value="${key}"]`);
-            if (valueEl)
-                valueEl.textContent = Number(input.value).toFixed(2);
-        });
+    wireDualInputs(container, "rate", (key, value) => {
+        store.setTaxRate(key, value);
     });
 }
 function renderRateControl(label, key, value, min, max, step, hint) {
     return `<div class="field-row">
-    <label class="field">${label} <span class="field-value" data-rate-value="${key}">${value.toFixed(2)}</span></label>
-    <input type="range" min="${min}" max="${max}" step="${step}" value="${value}" data-rate="${key}" />
+    <label class="field">${label}</label>
+    ${dualInputRow("rate", key, value, min, max, step)}
     <div class="field-hint">${hint}</div>
   </div>`;
 }
