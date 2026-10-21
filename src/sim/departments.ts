@@ -29,19 +29,52 @@ export function unlockedDepartments(tierConfig: TierConfig, stage?: string) {
   );
 }
 
-export function ensureDepartmentBudgets(j: PlayerJurisdiction, tierConfig: TierConfig): void {
+// A department newly unlocked by a growth-stage promotion (e.g. Public Works and Public
+// Safety at Town) phases its budget in over this many months rather than appearing fully
+// costed the instant the referendum passes -- a real town doesn't go from zero to a full
+// public-works payroll in the same month it incorporates.
+const DEPARTMENT_RAMP_MONTHS = 24;
+
+export function ensureDepartmentBudgets(
+  j: PlayerJurisdiction,
+  tierConfig: TierConfig,
+  rampIn = false
+): void {
   const unlocked = unlockedDepartments(tierConfig, j.stage);
   const existingKeys = new Set(j.departments.map((d) => d.key));
   for (const cfg of unlocked) {
     if (!existingKeys.has(cfg.key)) {
       const baseline = DEPARTMENT_BASELINE_PER_CAPITA[cfg.key] ?? 100;
-      j.departments.push({
+      const target = baseline * j.population * 0.9;
+      const dept: DepartmentBudget = {
         key: cfg.key,
         label: cfg.label,
-        allocated: baseline * j.population * 0.9,
-        staffing: Math.round((baseline * j.population * 0.9) / 65000),
+        allocated: rampIn ? target / DEPARTMENT_RAMP_MONTHS : target,
+        staffing: Math.round((rampIn ? target / DEPARTMENT_RAMP_MONTHS : target) / 65000),
         serviceQuality: 50,
-      });
+      };
+      if (rampIn) {
+        dept.rampTargetAllocated = target;
+        dept.rampMonthlyIncrement = target / DEPARTMENT_RAMP_MONTHS;
+        dept.rampMonthsRemaining = DEPARTMENT_RAMP_MONTHS - 1;
+      }
+      j.departments.push(dept);
+    }
+  }
+}
+
+/** Advances any department still phasing in its budget by one month. Call once per tick,
+ * before the monthly fiscal flow reads department allocations. */
+export function tickDepartmentRamps(j: PlayerJurisdiction): void {
+  for (const d of j.departments) {
+    if (!d.rampMonthsRemaining || d.rampMonthsRemaining <= 0) continue;
+    d.allocated += d.rampMonthlyIncrement ?? 0;
+    d.rampMonthsRemaining -= 1;
+    if (d.rampMonthsRemaining <= 0) {
+      d.allocated = d.rampTargetAllocated ?? d.allocated;
+      delete d.rampMonthsRemaining;
+      delete d.rampTargetAllocated;
+      delete d.rampMonthlyIncrement;
     }
   }
 }
@@ -67,5 +100,11 @@ export function averageServiceQuality(j: PlayerJurisdiction): number {
 
 export function setDepartmentAllocation(j: PlayerJurisdiction, key: string, amount: number): void {
   const dept = j.departments.find((d) => d.key === key);
-  if (dept) dept.allocated = Math.max(0, amount);
+  if (!dept) return;
+  dept.allocated = Math.max(0, amount);
+  // A manual edit is an explicit player decision -- it overrides whatever phase-in schedule
+  // was still running, rather than being overwritten by it again next month.
+  delete dept.rampMonthsRemaining;
+  delete dept.rampTargetAllocated;
+  delete dept.rampMonthlyIncrement;
 }

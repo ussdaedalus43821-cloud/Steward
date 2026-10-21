@@ -12,7 +12,7 @@ import {
   reputationLossForEmergencyManager,
 } from "./career.js";
 import { getTierConfig, MONTHS_PER_YEAR } from "./constants.js";
-import { ensureDepartmentBudgets, updateDepartmentServiceQuality } from "./departments.js";
+import { ensureDepartmentBudgets, tickDepartmentRamps, updateDepartmentServiceQuality } from "./departments.js";
 import { computeCreditRating } from "./creditRating.js";
 import { advanceEconomyCycle, tickRandomEvents } from "./events.js";
 import {
@@ -47,6 +47,7 @@ export function tickMonth(career: CareerState, rng: Rng): GameEvent[] {
   career.economyCyclePosition = economyState.cyclePosition;
   career.economyMultiplier = economyState.multiplier;
 
+  tickDepartmentRamps(j);
   applyMonthlyFiscalFlow(j, tierConfig, career.economyMultiplier);
   tickEnterpriseFundsMonthly(j);
 
@@ -80,7 +81,7 @@ export function tickMonth(career: CareerState, rng: Rng): GameEvent[] {
   if (j.reclassificationPending && career.clockMonth >= j.reclassificationPending.referendumMonth) {
     const result = resolveReferendum(j, rng);
     if (result.passed) {
-      ensureDepartmentBudgets(j, tierConfig);
+      ensureDepartmentBudgets(j, tierConfig, true);
       ensureEnterpriseFunds(j);
       events.push({
         id: nextId("evt"),

@@ -3,7 +3,7 @@ import { amortizeBondsAnnual } from "./bonds.js";
 import { tickProjectsMonthly } from "./capitalProjects.js";
 import { buildTenureRecord, isEligibleForPromotion, isEmergencyManagerTriggered, recordYearSummary, reputationGainForPromotion, reputationLossForEmergencyManager, } from "./career.js";
 import { getTierConfig, MONTHS_PER_YEAR } from "./constants.js";
-import { ensureDepartmentBudgets, updateDepartmentServiceQuality } from "./departments.js";
+import { ensureDepartmentBudgets, tickDepartmentRamps, updateDepartmentServiceQuality } from "./departments.js";
 import { computeCreditRating } from "./creditRating.js";
 import { advanceEconomyCycle, tickRandomEvents } from "./events.js";
 import { applyAnnualPopulationGrowth, isEligibleForReclassification, resolveReferendum, updateVitals, } from "./growth.js";
@@ -20,6 +20,7 @@ export function tickMonth(career, rng) {
     advanceEconomyCycle(economyState);
     career.economyCyclePosition = economyState.cyclePosition;
     career.economyMultiplier = economyState.multiplier;
+    tickDepartmentRamps(j);
     applyMonthlyFiscalFlow(j, tierConfig, career.economyMultiplier);
     tickEnterpriseFundsMonthly(j);
     const events = [];
@@ -49,7 +50,7 @@ export function tickMonth(career, rng) {
     if (j.reclassificationPending && career.clockMonth >= j.reclassificationPending.referendumMonth) {
         const result = resolveReferendum(j, rng);
         if (result.passed) {
-            ensureDepartmentBudgets(j, tierConfig);
+            ensureDepartmentBudgets(j, tierConfig, true);
             ensureEnterpriseFunds(j);
             events.push({
                 id: nextId("evt"),

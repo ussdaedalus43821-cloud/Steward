@@ -54,6 +54,11 @@ export interface DepartmentBudget {
   allocated: number;
   staffing: number;
   serviceQuality: number; // 0-100, diminishing-returns function of spend/capita
+  // Present only while a newly-unlocked department (from a growth-stage promotion) is phasing
+  // in its budget over time rather than appearing fully-costed in the same month it unlocks.
+  rampMonthsRemaining?: number;
+  rampTargetAllocated?: number;
+  rampMonthlyIncrement?: number;
 }
 
 export interface Bond {
