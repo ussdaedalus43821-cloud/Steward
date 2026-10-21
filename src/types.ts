@@ -279,3 +279,24 @@ export interface SaveFile {
   savedAtMonth: number;
   career: CareerState;
 }
+
+/** A player-made snapshot of the full career at some point in time, so a mistake (or a
+ * deliberate experiment) can be undone without restarting the whole career from scratch. */
+export interface Checkpoint {
+  id: string;
+  label: string;
+  createdAt: number; // Date.now() when the checkpoint was taken
+  clockMonth: number;
+  jurisdictionName: string;
+  tier: CareerTier;
+  career: CareerState;
+}
+
+export interface CheckpointSummary {
+  id: string;
+  label: string;
+  createdAt: number;
+  clockMonth: number;
+  jurisdictionName: string;
+  tier: CareerTier;
+}

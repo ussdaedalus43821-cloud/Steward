@@ -1,6 +1,9 @@
 import { store } from "../../state/store.js";
 import { formatMonth } from "../../utils/format.js";
 import { TIER_LABELS } from "../../sim/constants.js";
+function escapeText(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+}
 export function renderSettings(container) {
     const career = store.career;
     const tenureRows = career.tenureHistory.length
@@ -15,6 +18,21 @@ export function renderSettings(container) {
       </tr>`)
             .join("")
         : `<tr><td colspan="6" class="locked-note">No completed tenures yet.</td></tr>`;
+    const checkpoints = store.listCheckpoints();
+    const checkpointRows = checkpoints.length
+        ? checkpoints
+            .map((c) => `<tr>
+        <td>${escapeText(c.label)}</td>
+        <td>${escapeText(c.jurisdictionName)} · ${TIER_LABELS[c.tier]}</td>
+        <td class="num">${formatMonth(c.clockMonth)}</td>
+        <td class="num">${new Date(c.createdAt).toLocaleString()}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn small secondary" data-restore-checkpoint="${c.id}">Restore</button>
+          <button class="btn small danger" data-delete-checkpoint="${c.id}">Delete</button>
+        </td>
+      </tr>`)
+            .join("")
+        : `<tr><td colspan="5" class="locked-note">No checkpoints saved yet.</td></tr>`;
     container.innerHTML = `
     <div class="two-col">
       <div class="card">
@@ -37,6 +55,18 @@ export function renderSettings(container) {
         <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);" />
         <button class="btn danger" id="reset-btn">Start New Career (reset everything)</button>
       </div>
+    </div>
+    <div class="card" style="margin-top:16px;">
+      <h3>Checkpoints</h3>
+      <p class="field-hint">Save a snapshot of exactly where you are now, so you can undo a mistake or try something different later without restarting the whole career. Checkpoints live only in this browser, separately from the regular autosave — up to 20 are kept.</p>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <input type="text" id="checkpoint-label" placeholder="Label (optional)" style="flex:1;min-width:160px;" />
+        <button class="btn secondary" id="checkpoint-create-btn">Save Checkpoint Here</button>
+      </div>
+      <table style="margin-top:12px;">
+        <thead><tr><th>Label</th><th>Jurisdiction</th><th class="num">In-Game Date</th><th class="num">Saved</th><th></th></tr></thead>
+        <tbody>${checkpointRows}</tbody>
+      </table>
     </div>
     <div class="card" style="margin-top:16px;">
       <h3>Tenure History</h3>
@@ -98,6 +128,30 @@ export function renderSettings(container) {
         if (confirm("This will permanently erase your current career. Are you sure?")) {
             store.resetCareer();
         }
+    });
+    container.querySelector("#checkpoint-create-btn")?.addEventListener("click", () => {
+        const input = container.querySelector("#checkpoint-label");
+        store.createCheckpoint(input?.value ?? "");
+        if (input)
+            input.value = "";
+        renderSettings(container);
+    });
+    container.querySelectorAll("button[data-restore-checkpoint]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            if (!confirm("Restoring will replace your current career with this checkpoint. Continue?"))
+                return;
+            const result = store.restoreCheckpoint(btn.dataset.restoreCheckpoint);
+            if (!result.ok)
+                alert(result.reason ?? "Could not restore that checkpoint.");
+        });
+    });
+    container.querySelectorAll("button[data-delete-checkpoint]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            if (!confirm("Delete this checkpoint? This cannot be undone."))
+                return;
+            store.deleteCheckpoint(btn.dataset.deleteCheckpoint);
+            renderSettings(container);
+        });
     });
 }
 //# sourceMappingURL=settings.js.map

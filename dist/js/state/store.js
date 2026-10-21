@@ -1,4 +1,6 @@
 import { Rng } from "../utils/random.js";
+import { nextId } from "../utils/id.js";
+import { formatMonth } from "../utils/format.js";
 import { CLOCK_SPEED_MS_PER_MONTH } from "../sim/constants.js";
 import { createNewCareer } from "../sim/newGame.js";
 import { acceptPromotion, declinePromotion, petitionForReclassification, startNextJobAfterEmergencyManager, tickMonth, } from "../sim/engine.js";
@@ -9,6 +11,8 @@ import { expandNodeChildren, findNodeById } from "../sim/subJurisdictions.js";
 import { computeBalanceCheck } from "../sim/fiscal.js";
 const SAVE_KEY = "steward_save_v1";
 const SAVE_VERSION = 1;
+const CHECKPOINTS_KEY = "steward_checkpoints_v1";
+const MAX_CHECKPOINTS = 20;
 class GameStore {
     constructor() {
         this.listeners = [];
@@ -227,6 +231,71 @@ class GameStore {
         this.scheduleTick();
         this.notify();
         return { ok: true };
+    }
+    // ---- Checkpoints: manual snapshots to undo a mistake or branch off without restarting ----
+    readCheckpoints() {
+        try {
+            const raw = localStorage.getItem(CHECKPOINTS_KEY);
+            if (!raw)
+                return [];
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+        }
+        catch (e) {
+            console.warn("Failed to read checkpoints:", e);
+            return [];
+        }
+    }
+    writeCheckpoints(checkpoints) {
+        try {
+            localStorage.setItem(CHECKPOINTS_KEY, JSON.stringify(checkpoints));
+        }
+        catch (e) {
+            console.warn("Failed to save checkpoints:", e);
+        }
+    }
+    listCheckpoints() {
+        return this.readCheckpoints()
+            .map(({ id, label, createdAt, clockMonth, jurisdictionName, tier }) => ({
+            id,
+            label,
+            createdAt,
+            clockMonth,
+            jurisdictionName,
+            tier,
+        }))
+            .sort((a, b) => b.createdAt - a.createdAt);
+    }
+    createCheckpoint(label) {
+        const j = this.career.jurisdiction;
+        const checkpoint = {
+            id: nextId("ckpt"),
+            label: label?.trim() || `${j.name} — ${formatMonth(this.career.clockMonth)}`,
+            createdAt: Date.now(),
+            clockMonth: this.career.clockMonth,
+            jurisdictionName: j.name,
+            tier: this.career.currentTier,
+            // Deep clone through JSON, the same shape the autosave already round-trips through, so a
+            // later edit to the live career can never mutate what was snapshotted here.
+            career: JSON.parse(JSON.stringify(this.career)),
+        };
+        const checkpoints = this.readCheckpoints();
+        checkpoints.push(checkpoint);
+        while (checkpoints.length > MAX_CHECKPOINTS)
+            checkpoints.shift();
+        this.writeCheckpoints(checkpoints);
+    }
+    restoreCheckpoint(id) {
+        const checkpoint = this.readCheckpoints().find((c) => c.id === id);
+        if (!checkpoint)
+            return { ok: false, reason: "That checkpoint no longer exists." };
+        this.career = JSON.parse(JSON.stringify(checkpoint.career));
+        this.scheduleTick();
+        this.notify();
+        return { ok: true };
+    }
+    deleteCheckpoint(id) {
+        this.writeCheckpoints(this.readCheckpoints().filter((c) => c.id !== id));
     }
 }
 export const store = new GameStore();
