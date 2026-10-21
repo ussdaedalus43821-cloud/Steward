@@ -37,7 +37,7 @@ export function computeAnnualPopulationGrowthRate(
   const econDevBoost = j.econDevPrograms
     .filter((p) => p.active)
     .reduce((s, p) => s + p.growthBoostPct / 100, 0);
-  const economyFactor = (economyMultiplier - 1) * 0.4;
+  const economyFactor = (economyMultiplier - 1) * 0.08;
 
   return clamp(base + serviceFactor + infraFactor + taxFactor + econDevBoost + economyFactor, -0.06, 0.09);
 }
