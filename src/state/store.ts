@@ -176,10 +176,9 @@ class GameStore {
   }
 
   // ---- Economic development ----
-  addEconDevProgram(label: string, annualCost: number, growthBoostPct: number, durationMonths: number): void {
-    this.career.jurisdiction.econDevPrograms.push(
-      createEconDevProgram(label, annualCost, growthBoostPct, durationMonths)
-    );
+  addEconDevProgram(label: string, annualCost: number, durationMonths: number): void {
+    const j = this.career.jurisdiction;
+    j.econDevPrograms.push(createEconDevProgram(label, annualCost, j.population, durationMonths));
     this.notify();
   }
 

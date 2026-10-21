@@ -81,13 +81,26 @@ export function resolveReferendum(j, rng) {
     j.reclassificationPending = undefined;
     return { passed, stage };
 }
-export function createEconDevProgram(label, annualCost, growthBoostPct, durationMonths) {
+// A tax abatement or incentive program's real-world effect on growth is set by the market, not
+// by what the jurisdiction announces -- a city manager can't simply declare "this will boost
+// growth 6%". It scales with how much is actually committed relative to the tax base (diminishing
+// returns, same shape as department service quality), and there's a realistic ceiling: no single
+// incentive program moves population growth more than ECON_DEV_MAX_BOOST_PCT on its own.
+export const ECON_DEV_MAX_BOOST_PCT = 2.5;
+const ECON_DEV_BASELINE_COST_PER_CAPITA = 120;
+export function computeEconDevGrowthBoost(annualCost, population) {
+    if (population <= 0 || annualCost <= 0)
+        return 0;
+    const costPerCapita = annualCost / population;
+    return ECON_DEV_MAX_BOOST_PCT * (costPerCapita / (costPerCapita + ECON_DEV_BASELINE_COST_PER_CAPITA));
+}
+export function createEconDevProgram(label, annualCost, population, durationMonths) {
     return {
         id: `econdev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         label,
         active: true,
         annualCost,
-        growthBoostPct,
+        growthBoostPct: computeEconDevGrowthBoost(annualCost, population),
         monthsRemaining: durationMonths,
     };
 }

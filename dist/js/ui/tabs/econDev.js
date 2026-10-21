@@ -2,6 +2,7 @@ import { store } from "../../state/store.js";
 import { formatMoney } from "../../utils/format.js";
 import { lineChart, legendHtml } from "../charts.js";
 import { openModal, closeModal } from "../shared.js";
+import { computeEconDevGrowthBoost, ECON_DEV_MAX_BOOST_PCT } from "../../sim/growth.js";
 export function renderEconDev(container) {
     const j = store.career.jurisdiction;
     const history = j.scorecardHistory;
@@ -48,12 +49,12 @@ export function renderEconDev(container) {
       <p class="field-hint">Incentives trade near-term revenue for a bet on long-run tax base growth.</p>
     </div>
   `;
-    container.querySelector("#new-incentive-btn")?.addEventListener("click", openIncentiveModal);
+    container.querySelector("#new-incentive-btn")?.addEventListener("click", () => openIncentiveModal(j.population));
     container.querySelectorAll("button[data-cancel-program]").forEach((btn) => {
         btn.addEventListener("click", () => store.cancelEconDevProgram(btn.dataset.cancelProgram));
     });
 }
-function openIncentiveModal() {
+function openIncentiveModal(population) {
     openModal(`<h2>New Incentive Program</h2>
     <div class="field-row">
       <label class="field">Program Name</label>
@@ -61,27 +62,33 @@ function openIncentiveModal() {
     </div>
     <div class="field-row">
       <label class="field">Annual Cost (forgone revenue)</label>
-      <input type="number" id="inc-cost" value="150000" min="0" step="10000" />
-    </div>
-    <div class="field-row">
-      <label class="field">Expected Growth Boost (%/yr)</label>
-      <input type="number" id="inc-boost" value="1.5" min="0" max="6" step="0.1" />
+      <input type="number" id="inc-cost" value="30000" min="0" step="5000" />
     </div>
     <div class="field-row">
       <label class="field">Duration (months)</label>
       <input type="number" id="inc-duration" value="60" min="6" max="240" />
     </div>
+    <p class="field-hint" id="inc-preview"></p>
+    <p class="field-hint">Growth effect is market-determined, not something you set directly: it scales with how much you commit relative to your population, with diminishing returns, and no single program can move growth more than ${ECON_DEV_MAX_BOOST_PCT}%/yr on its own.</p>
     <div class="modal-actions">
       <button class="btn secondary" id="inc-cancel">Cancel</button>
       <button class="btn" id="inc-submit">Launch Program</button>
     </div>`, (root) => {
+        const costInput = root.querySelector("#inc-cost");
+        const preview = root.querySelector("#inc-preview");
+        const updatePreview = () => {
+            const cost = Number(costInput.value) || 0;
+            const boost = computeEconDevGrowthBoost(cost, population);
+            preview.textContent = `Estimated effect at current population (${population.toLocaleString()}): +${boost.toFixed(2)}%/yr growth`;
+        };
+        costInput.addEventListener("input", updatePreview);
+        updatePreview();
         root.querySelector("#inc-cancel")?.addEventListener("click", closeModal);
         root.querySelector("#inc-submit")?.addEventListener("click", () => {
             const name = root.querySelector("#inc-name").value.trim() || "Incentive Program";
-            const cost = Number(root.querySelector("#inc-cost").value) || 0;
-            const boost = Number(root.querySelector("#inc-boost").value) || 0;
+            const cost = Number(costInput.value) || 0;
             const duration = Number(root.querySelector("#inc-duration").value) || 12;
-            store.addEconDevProgram(name, cost, boost, duration);
+            store.addEconDevProgram(name, cost, duration);
             closeModal();
         });
     });
