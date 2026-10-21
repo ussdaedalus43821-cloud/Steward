@@ -238,7 +238,10 @@ export function estimatedAnnualExpenditure(j) {
         1);
 }
 export function fundBalanceRatio(j) {
-    const denom = j.generalFund.lastYearExpenditures || j.generalFund.ytdExpenditures * 12 || estimatedAnnualExpenditure(j);
+    // ytdExpenditures is a cumulative year-to-date total, not a monthly rate -- multiplying it
+    // by 12 anywhere past month 1 of a fiscal year wildly overstates annual expenditures, which
+    // would distort this ratio's display for most of any brand-new jurisdiction's first year.
+    const denom = j.generalFund.lastYearExpenditures || estimatedAnnualExpenditure(j);
     return j.generalFund.fundBalance / denom;
 }
 //# sourceMappingURL=fiscal.js.map

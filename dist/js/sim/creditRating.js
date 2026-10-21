@@ -1,5 +1,6 @@
 import { clamp } from "../utils/format.js";
 import { totalDebtOutstanding } from "./bonds.js";
+import { estimatedAnnualExpenditure } from "./fiscal.js";
 export function computeRevenueGrowthTrend(j) {
     // Own-source revenue (excludes intergovernmental transfers) so a structural transfer-rate
     // step-down on promotion isn't scored the same as an organic decline in the tax base. Old
@@ -17,7 +18,10 @@ export function computeRevenueGrowthTrend(j) {
 }
 export function computeCreditRating(j, fundBalanceRatio) {
     const fundBalanceScore = clamp(((fundBalanceRatio + 0.05) / 0.35) * 100, 0, 100);
-    const annualRevenue = j.generalFund.lastYearRevenue || j.generalFund.ytdRevenue * 12 || 1;
+    // ytdRevenue is a cumulative year-to-date total, not a monthly rate -- multiplying it by 12
+    // anywhere past month 1 of a fiscal year wildly overstates annual revenue.
+    // estimatedAnnualExpenditure is a reasonable stand-in before a first fiscal close exists.
+    const annualRevenue = j.generalFund.lastYearRevenue || estimatedAnnualExpenditure(j) || 1;
     const debtToRevenue = totalDebtOutstanding(j) / annualRevenue;
     const debtScore = clamp(100 - debtToRevenue * 80, 0, 100);
     const growthTrend = computeRevenueGrowthTrend(j);

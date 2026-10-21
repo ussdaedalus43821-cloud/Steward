@@ -36,12 +36,13 @@ export function tickRandomEvents(
   const events: GameEvent[] = [];
   // Damage costs scale off this jurisdiction's OWN budget (a % of annual revenue), not a
   // flat dollar figure calibrated for a mid-size city — a hamlet and a state should each
-  // take a proportional hit, not the same absolute repair bill.
-  const budgetScale = Math.max(
-    j.generalFund.lastYearRevenue,
-    j.generalFund.ytdRevenue * 12,
-    estimatedAnnualExpenditure(j)
-  );
+  // take a proportional hit, not the same absolute repair bill. NOTE: ytdRevenue is a
+  // cumulative year-to-date total, not a monthly rate -- multiplying it by 12 anywhere past
+  // month 1 of a fiscal year wildly overstates the annual figure (e.g. ~11x too high at
+  // month 11), which used to inflate disaster costs far past their documented severity caps.
+  // estimatedAnnualExpenditure is already a correct annual figure at any point in the year,
+  // so it alone is the right fallback before a jurisdiction's first fiscal close.
+  const budgetScale = Math.max(j.generalFund.lastYearRevenue, estimatedAnnualExpenditure(j));
 
   if (rng.chance(0.012)) {
     const severity = rng.chance(0.35) ? "major" : "moderate";
