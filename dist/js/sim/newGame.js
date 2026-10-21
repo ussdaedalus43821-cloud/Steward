@@ -97,7 +97,12 @@ export function createPlayerJurisdiction(tier, currentMonth, rng) {
     const annualExpenditureGuess = j.departments.reduce((s, d) => s + d.allocated, 0);
     const startingBalance = annualExpenditureGuess * 0.18;
     j.generalFund.fundBalance = startingBalance;
-    j.netPositionTracked = startingBalance;
+    // Net position starts from cash on hand, minus any real liability the jurisdiction is
+    // already carrying on day one -- a state/country with a newly-created pension system is
+    // realistically underwater on it immediately, and the balance check needs to know that
+    // rather than discovering a mystery gap the size of the unfunded liability.
+    const startingUnfundedPension = j.pension ? Math.max(0, j.pension.actuarialLiability - j.pension.assets) : 0;
+    j.netPositionTracked = startingBalance - startingUnfundedPension;
     return j;
 }
 export function createNewCareer(rng) {

@@ -16,15 +16,19 @@ export function ensureEnterpriseFunds(j: PlayerJurisdiction): void {
   if (j.tier !== "municipality") return;
   if (!j.stage || !stageAtLeast(j.stage, "town")) return;
   if (j.enterpriseFunds.some((e) => e.key === "waterSewer")) return;
+  const seedBalance = j.population * 40;
   j.enterpriseFunds.push({
     key: "waterSewer",
     label: "Water & Sewer Utility",
     feeRate: 50,
-    fundBalance: j.population * 40,
+    fundBalance: seedBalance,
     ytdRevenue: 0,
     ytdExpenditures: 0,
     subsidyFromGeneralFundYtd: 0,
   });
+  // The seed balance is a real asset appearing for the first time -- recognize it on the
+  // equity side too, or the balance check reads "out of balance" the moment this fund exists.
+  j.netPositionTracked += seedBalance;
 }
 
 export function tickEnterpriseFundsMonthly(j: PlayerJurisdiction): void {
@@ -222,7 +226,11 @@ export function applyMonthlyFiscalFlow(
   }
   const depreciationMonthly = (j.capitalAssetsNetValue * DEPRECIATION_RATE) / 12;
   j.capitalAssetsNetValue = Math.max(0, j.capitalAssetsNetValue - depreciationMonthly);
-  const pensionExpenseMonthly = j.pension ? j.pension.annualRequiredContribution / 12 : 0;
+  // Use the actual cash contribution here, not the ARC -- the ARC is only a target, and the
+  // liability-side consequence of under/over-funding it is reconciled exactly once a year
+  // against the real before/after change in the unfunded liability (see runAnnualClose),
+  // rather than estimated monthly against a figure that may not match what really happens.
+  const pensionExpenseMonthly = j.pension ? j.pension.plannedContribution / 12 : 0;
 
   const fullAccrualExpenseMonthly =
     budget.departmentExpenditure / 12 +

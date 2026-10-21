@@ -130,7 +130,16 @@ function runAnnualClose(career: CareerState, rng: Rng): GameEvent[] {
   updateVitals(j, career.economyMultiplier);
   updateDepartmentServiceQuality(j);
 
-  if (j.pension) annualPensionTick(j.pension, career.economyMultiplier, rng);
+  if (j.pension) {
+    const unfundedBefore = Math.max(0, j.pension.actuarialLiability - j.pension.assets);
+    annualPensionTick(j.pension, career.economyMultiplier, rng);
+    const unfundedAfter = Math.max(0, j.pension.actuarialLiability - j.pension.assets);
+    // The monthly cash contribution is already reflected continuously; this is the exact
+    // remaining piece -- however the unfunded liability actually moved this year (normal
+    // cost growth, investment gains/losses), applied the same instant the liability itself
+    // changes, so the balance check never drifts between annual closes.
+    j.netPositionTracked -= unfundedAfter - unfundedBefore;
+  }
 
   if (tierConfig.hasSubJurisdictions && tierConfig.subJurisdictionTier) {
     ensureSubJurisdictions(j, tierConfig.subJurisdictionTier, 6, rng);
