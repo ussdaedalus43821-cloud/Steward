@@ -204,6 +204,11 @@ export function closeFiscalYear(j, tierConfig) {
     gf.fundBalanceHistory.push(gf.fundBalance);
     const breakdown = computeAnnualRevenue(j, tierConfig, 1);
     gf.revenueBreakdownLastYear = breakdown.byKey;
+    const transferKeys = new Set(tierConfig.revenueSources.filter((s) => s.type === "transfer").map((s) => s.key));
+    const ownSourceRevenue = Object.entries(breakdown.byKey).reduce((sum, [key, amount]) => (transferKeys.has(key) ? sum : sum + amount), 0);
+    if (!gf.ownSourceRevenueHistory)
+        gf.ownSourceRevenueHistory = [];
+    gf.ownSourceRevenueHistory.push(ownSourceRevenue);
     gf.ytdRevenue = 0;
     gf.ytdExpenditures = 0;
 }

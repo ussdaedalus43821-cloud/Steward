@@ -115,6 +115,10 @@ export interface GeneralFund {
   lastYearRevenue: number;
   lastYearExpenditures: number;
   revenueHistory: number[];
+  // Revenue history with intergovernmental transfers excluded -- used for the credit rating's
+  // growth trend so a structural transfer-rate step-down on promotion (e.g. hamlet -> village)
+  // isn't scored the same as an organic decline in the jurisdiction's own tax base.
+  ownSourceRevenueHistory: number[];
   expenditureHistory: number[];
   fundBalanceHistory: number[];
   revenueBreakdownLastYear: Record<string, number>;

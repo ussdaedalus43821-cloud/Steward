@@ -34,6 +34,7 @@ function initialGeneralFund(startingBalance) {
         lastYearRevenue: 0,
         lastYearExpenditures: 0,
         revenueHistory: [],
+        ownSourceRevenueHistory: [],
         expenditureHistory: [],
         fundBalanceHistory: [],
         revenueBreakdownLastYear: {},

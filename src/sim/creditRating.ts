@@ -3,7 +3,13 @@ import { clamp } from "../utils/format.js";
 import { totalDebtOutstanding } from "./bonds.js";
 
 export function computeRevenueGrowthTrend(j: PlayerJurisdiction): number {
-  const h = j.generalFund.revenueHistory;
+  // Own-source revenue (excludes intergovernmental transfers) so a structural transfer-rate
+  // step-down on promotion isn't scored the same as an organic decline in the tax base. Old
+  // saves may not have this history yet -- fall back to total revenue until it accumulates.
+  const h =
+    j.generalFund.ownSourceRevenueHistory && j.generalFund.ownSourceRevenueHistory.length >= 2
+      ? j.generalFund.ownSourceRevenueHistory
+      : j.generalFund.revenueHistory;
   if (h.length < 2) return 0;
   const prev = h[h.length - 2];
   const curr = h[h.length - 1];
