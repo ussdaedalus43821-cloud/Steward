@@ -180,7 +180,11 @@ export function applyMonthlyFiscalFlow(j, tierConfig, economyMultiplier) {
     const depreciationMonthly = (j.capitalAssetsNetValue * DEPRECIATION_RATE) / 12;
     j.capitalAssetsNetValue = Math.max(0, j.capitalAssetsNetValue - depreciationMonthly);
     const pensionExpenseMonthly = j.pension ? j.pension.annualRequiredContribution / 12 : 0;
-    const fullAccrualExpenseMonthly = budget.departmentExpenditure / 12 + interestExpenseMonthly + depreciationMonthly + pensionExpenseMonthly;
+    const fullAccrualExpenseMonthly = budget.departmentExpenditure / 12 +
+        interestExpenseMonthly +
+        depreciationMonthly +
+        pensionExpenseMonthly +
+        budget.econDevCost / 12;
     j.netPositionTracked += monthlyRevenue - fullAccrualExpenseMonthly;
 }
 export function closeFiscalYear(j, tierConfig) {

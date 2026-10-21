@@ -18,6 +18,7 @@ import {
 import { setDepartmentAllocation, updateDepartmentServiceQuality } from "../sim/departments.js";
 import { createEconDevProgram } from "../sim/growth.js";
 import { expandNodeChildren, findNodeById } from "../sim/subJurisdictions.js";
+import { computeBalanceCheck } from "../sim/fiscal.js";
 
 const SAVE_KEY = "steward_save_v1";
 const SAVE_VERSION = 1;
@@ -34,7 +35,18 @@ class GameStore {
   constructor() {
     this.rng = new Rng(Date.now() ^ 0x9e3779b9);
     this.career = this.loadOrCreate();
+    this.reconcileNetPosition();
     this.scheduleTick();
+  }
+
+  /** Clears any stale drift in netPositionTracked left over from a fixed accounting bug.
+   * Safe because netPositionTracked only feeds the Financials balance-check display — it has
+   * no effect on credit rating, oversight, or any other gameplay mechanic. */
+  private reconcileNetPosition(): void {
+    const check = computeBalanceCheck(this.career.jurisdiction);
+    if (!check.balanced) {
+      this.career.jurisdiction.netPositionTracked = check.assets - check.liabilities;
+    }
   }
 
   private loadOrCreate(): CareerState {

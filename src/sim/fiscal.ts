@@ -225,7 +225,11 @@ export function applyMonthlyFiscalFlow(
   const pensionExpenseMonthly = j.pension ? j.pension.annualRequiredContribution / 12 : 0;
 
   const fullAccrualExpenseMonthly =
-    budget.departmentExpenditure / 12 + interestExpenseMonthly + depreciationMonthly + pensionExpenseMonthly;
+    budget.departmentExpenditure / 12 +
+    interestExpenseMonthly +
+    depreciationMonthly +
+    pensionExpenseMonthly +
+    budget.econDevCost / 12;
   j.netPositionTracked += monthlyRevenue - fullAccrualExpenseMonthly;
 }
 
