@@ -1,6 +1,7 @@
 import { store } from "../../state/store.js";
 import { formatMonth, formatPercent } from "../../utils/format.js";
 import { TIER_LABELS } from "../../sim/constants.js";
+import { icon } from "../icons.js";
 
 function escapeText(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
@@ -55,8 +56,8 @@ export function renderSettings(container: HTMLElement): void {
           ${postings
             .map((p) => {
               const isGoldenStar = p.riskLabel === "Golden Star";
-              return `<div class="card"${isGoldenStar ? ' style="border-color:#d4af37;box-shadow:0 0 0 1px #d4af37;"' : ""}>
-                <h3>${isGoldenStar ? "⭐ " : ""}${escapeText(p.name)}</h3>
+              return `<div class="card${isGoldenStar ? " golden-star-card" : ""}">
+                <h3>${isGoldenStar ? `<span class="golden-star-icon">${icon("star")}</span>` : ""}${escapeText(p.name)}</h3>
                 <table>
                   <tr><td>Risk</td><td class="num">${p.riskLabel}</td></tr>
                   <tr><td>Scale</td><td class="num">~${p.scaleMultiplier.toFixed(1)}x current population</td></tr>

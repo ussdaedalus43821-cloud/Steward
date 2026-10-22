@@ -2,6 +2,7 @@ import { store } from "../../state/store.js";
 import { formatMoney, formatPercent, formatPopulation } from "../../utils/format.js";
 import { renderIllustrationSVG } from "../illustration.js";
 import { badge, ratingBadge } from "../shared.js";
+import { icon } from "../icons.js";
 import { STAGE_LABELS, TIER_LABELS } from "../../sim/constants.js";
 import { isEligibleForReclassification } from "../../sim/growth.js";
 import { fundBalanceRatio } from "../../sim/fiscal.js";
@@ -134,14 +135,16 @@ export function renderOverview(container) {
 function renderTopSummary(j) {
     const fbr = fundBalanceRatio(j);
     return `<div class="grid grid-cols-4">
-    ${statTileLocal("Population", formatPopulation(j.population))}
-    ${statTileLocal("Fund Balance", formatMoney(j.generalFund.fundBalance), formatPercent(fbr * 100) + " of expenditures")}
-    ${statTileLocal("Credit Rating", ratingBadge(j.creditRating))}
-    ${statTileLocal("Oversight Status", oversightBadge(j.oversight.level))}
+    ${statTileLocal("Population", formatPopulation(j.population), undefined, "population")}
+    ${statTileLocal("Fund Balance", formatMoney(j.generalFund.fundBalance), formatPercent(fbr * 100) + " of expenditures", "money")}
+    ${statTileLocal("Credit Rating", ratingBadge(j.creditRating), undefined, "rating")}
+    ${statTileLocal("Oversight Status", oversightBadge(j.oversight.level), undefined, "shield")}
   </div>`;
 }
-function statTileLocal(label, value, sub) {
-    return `<div class="card stat-tile"><div class="label">${label}</div><div class="value">${value}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</div>`;
+function statTileLocal(label, value, sub, iconName) {
+    return `<div class="card stat-tile">
+    ${iconName ? `<div class="stat-tile-icon">${icon(iconName)}</div>` : ""}
+    <div class="label">${label}</div><div class="value">${value}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</div>`;
 }
 function oversightBadge(level) {
     if (level === "normal")
@@ -181,12 +184,12 @@ function renderSingleJurisdictionOverview(j) {
         : ""}
       </div>
       <div class="grid" style="align-content:start;">
-        ${statTileLocal("Fund Balance", formatMoney(j.generalFund.fundBalance), formatPercent(fbr * 100) + " of expenditures")}
-        ${statTileLocal("Credit Rating", ratingBadge(j.creditRating))}
-        ${statTileLocal("Oversight Status", oversightBadge(j.oversight.level))}
-        ${statTileLocal("Infrastructure", `${j.vitals.infrastructureCondition.toFixed(0)}/100`, `Maintenance backlog ${j.vitals.maintenanceBacklog.toFixed(0)}`)}
-        ${statTileLocal("Avg Service Quality", `${avgQuality(j).toFixed(0)}/100`)}
-        ${statTileLocal("Economic Health", `${j.vitals.economicHealth.toFixed(0)}/100`, `Tax competitiveness ${j.vitals.taxCompetitivenessIndex.toFixed(0)} (100=avg)`)}
+        ${statTileLocal("Fund Balance", formatMoney(j.generalFund.fundBalance), formatPercent(fbr * 100) + " of expenditures", "money")}
+        ${statTileLocal("Credit Rating", ratingBadge(j.creditRating), undefined, "rating")}
+        ${statTileLocal("Oversight Status", oversightBadge(j.oversight.level), undefined, "shield")}
+        ${statTileLocal("Infrastructure", `${j.vitals.infrastructureCondition.toFixed(0)}/100`, `Maintenance backlog ${j.vitals.maintenanceBacklog.toFixed(0)}`, "infrastructure")}
+        ${statTileLocal("Avg Service Quality", `${avgQuality(j).toFixed(0)}/100`, undefined, "service")}
+        ${statTileLocal("Economic Health", `${j.vitals.economicHealth.toFixed(0)}/100`, `Tax competitiveness ${j.vitals.taxCompetitivenessIndex.toFixed(0)} (100=avg)`, "economy")}
       </div>
     </div>
   `;

@@ -1,6 +1,7 @@
 import { store } from "../state/store.js";
 import { formatMoney, formatMonth, formatPopulation } from "../utils/format.js";
 import { STAGE_JOB_TITLE, STAGE_LABELS, TIER_LABELS } from "../sim/constants.js";
+import { icon } from "./icons.js";
 export const TABS = [
     { key: "overview", label: "Overview" },
     { key: "budget", label: "Budget" },
@@ -49,12 +50,12 @@ function buildHeaderShell(container, onTabClick) {
         <div class="juris-meta" data-field="jobmeta"></div>
       </div>
       <div class="spacer"></div>
-      <div class="stat"><span class="label">Population</span><span class="value" data-field="population"></span></div>
-      <div class="stat"><span class="label">Fund Balance</span><span class="value" data-field="fundbalance"></span></div>
-      <div class="stat"><span class="label">Credit Rating</span><span class="value" data-field="creditrating"></span></div>
-      <div class="stat"><span class="label">Oversight</span><span class="value" data-field="oversight"></span></div>
-      <div class="stat"><span class="label">Reputation</span><span class="value" data-field="reputation"></span></div>
-      <div class="stat"><span class="label">Clock</span><span class="value" data-field="clock"></span></div>
+      <div class="stat">${icon("population")}<span class="stat-text"><span class="label">Population</span><span class="value" data-field="population"></span></span></div>
+      <div class="stat">${icon("money")}<span class="stat-text"><span class="label">Fund Balance</span><span class="value" data-field="fundbalance"></span></span></div>
+      <div class="stat">${icon("rating")}<span class="stat-text"><span class="label">Credit Rating</span><span class="value" data-field="creditrating"></span></span></div>
+      <div class="stat">${icon("shield")}<span class="stat-text"><span class="label">Oversight</span><span class="value" data-field="oversight"></span></span></div>
+      <div class="stat">${icon("reputation")}<span class="stat-text"><span class="label">Reputation</span><span class="value" data-field="reputation"></span></span></div>
+      <div class="stat">${icon("clock")}<span class="stat-text"><span class="label">Clock</span><span class="value" data-field="clock"></span></span></div>
       <div class="clock-controls">
         ${SPEEDS.map((s) => `<button data-speed="${s.speed}">${s.label}</button>`).join("")}
       </div>
