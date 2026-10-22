@@ -15,6 +15,13 @@ function economicFactor(j) {
     return clamp(j.vitals.economicHealth / 100, 0.35, 1.6);
 }
 export function ensureEnterpriseFunds(j) {
+    // Backfill fields added to EnterpriseFund after a fund was already saved -- without this,
+    // a save from before pilotPaidToGeneralFundYtd existed loads it as undefined/null, and the
+    // += in tickEnterpriseFundsMonthly turns it into NaN forever.
+    for (const ef of j.enterpriseFunds) {
+        if (ef.pilotPaidToGeneralFundYtd == null)
+            ef.pilotPaidToGeneralFundYtd = 0;
+    }
     if (j.tier !== "municipality")
         return;
     if (!j.stage || !stageAtLeast(j.stage, "town"))
@@ -50,7 +57,10 @@ export function tickEnterpriseFundsMonthly(j) {
             // it is still just the same monthlyNet moving between two asset buckets.
             const pilot = monthlyNet * ENTERPRISE_PILOT_RATE;
             ef.fundBalance += monthlyNet - pilot;
-            ef.pilotPaidToGeneralFundYtd += pilot;
+            // Guard against a save made before this field existed, where it loads as undefined/null --
+            // ensureEnterpriseFunds() backfills it too, but that only runs annually/on reclassification,
+            // not every month like this tick does.
+            ef.pilotPaidToGeneralFundYtd = (ef.pilotPaidToGeneralFundYtd ?? 0) + pilot;
             j.generalFund.fundBalance += pilot;
             j.generalFund.ytdRevenue += pilot;
         }
@@ -231,6 +241,14 @@ export function closeFiscalYear(j, tierConfig) {
     gf.ownSourceRevenueHistory.push(ownSourceRevenue);
     gf.ytdRevenue = 0;
     gf.ytdExpenditures = 0;
+    // Enterprise fund YTD counters accumulated monthly all year (see tickEnterpriseFundsMonthly)
+    // but were never reset here, so they were really lifetime-to-date, not year-to-date.
+    for (const ef of j.enterpriseFunds) {
+        ef.ytdRevenue = 0;
+        ef.ytdExpenditures = 0;
+        ef.subsidyFromGeneralFundYtd = 0;
+        ef.pilotPaidToGeneralFundYtd = 0;
+    }
 }
 export function computeBalanceCheck(j) {
     const cash = j.generalFund.fundBalance +
