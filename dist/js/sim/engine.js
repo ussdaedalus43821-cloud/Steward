@@ -1,7 +1,7 @@
 import { nextId } from "../utils/id.js";
 import { amortizeBondsAnnual } from "./bonds.js";
 import { tickProjectsMonthly } from "./capitalProjects.js";
-import { buildTenureRecord, generateCareerPostings, isEligibleForCareerPostings, isEligibleForPromotion, isEmergencyManagerTriggered, recordYearSummary, reputationGainForPromotion, reputationLossForEmergencyManager, } from "./career.js";
+import { buildTenureRecord, generateCareerPostings, generateGoldenStarPosting, isEligibleForCareerPostings, isEligibleForGoldenStarPosting, isEligibleForPromotion, isEmergencyManagerTriggered, recordYearSummary, reputationGainForPromotion, reputationLossForEmergencyManager, } from "./career.js";
 import { ADMIN_EFFICIENCY_CAP, ADMIN_EFFICIENCY_PER_PROJECT, getTierConfig, MONTHS_PER_YEAR, OPERATING_GRANT_ANNUAL_RATE, OPERATING_GRANT_COVERAGE_RATE, OPERATING_GRANT_POOL_CAP_MULTIPLE, } from "./constants.js";
 import { ensureDepartmentBudgets, tickDepartmentRamps, updateDepartmentServiceQuality } from "./departments.js";
 import { computeCreditRating } from "./creditRating.js";
@@ -206,6 +206,19 @@ function runAnnualClose(career, rng) {
             month: career.clockMonth,
             title: "New Career Opportunities",
             description: `Other nations have taken notice of your work at ${j.name}. New postings are available whenever you're ready.`,
+            kind: "promotion",
+            severity: "good",
+        });
+    }
+    // Independent of (and strictly rarer than) the regular postings above -- a decade at 95+ opens
+    // a single superpower-scale posting on top of whatever else is currently offered.
+    if (isEligibleForGoldenStarPosting(j) && !(career.careerPostings ?? []).some((p) => p.riskLabel === "Golden Star")) {
+        career.careerPostings = [...(career.careerPostings ?? []), generateGoldenStarPosting(rng)];
+        events.push({
+            id: nextId("evt"),
+            month: career.clockMonth,
+            title: "Golden Star Opportunity",
+            description: `A decade of near-flawless governance at ${j.name} has drawn interest from one of the world's dominant superpowers. A singular, massive opportunity is now available.`,
             kind: "promotion",
             severity: "good",
         });

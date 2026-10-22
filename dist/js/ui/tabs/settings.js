@@ -40,8 +40,10 @@ export function renderSettings(container) {
         <p class="field-hint">Country is the top of the career ladder -- there's no further promotion. These are other nations looking for leadership instead. Accepting freezes ${escapeText(career.jurisdiction.name)} in your tenure history and hands you a fresh country, at the scale and risk shown below. No rush -- they'll keep until you're ready.</p>
         <div class="grid grid-cols-2">
           ${postings
-            .map((p) => `<div class="card">
-                <h3>${escapeText(p.name)}</h3>
+            .map((p) => {
+            const isGoldenStar = p.riskLabel === "Golden Star";
+            return `<div class="card"${isGoldenStar ? ' style="border-color:#d4af37;box-shadow:0 0 0 1px #d4af37;"' : ""}>
+                <h3>${isGoldenStar ? "⭐ " : ""}${escapeText(p.name)}</h3>
                 <table>
                   <tr><td>Risk</td><td class="num">${p.riskLabel}</td></tr>
                   <tr><td>Scale</td><td class="num">~${p.scaleMultiplier.toFixed(1)}x current population</td></tr>
@@ -49,7 +51,8 @@ export function renderSettings(container) {
                 </table>
                 <p class="field-hint">${escapeText(p.description)}</p>
                 <button class="btn" data-accept-posting="${p.id}">Accept Posting</button>
-              </div>`)
+              </div>`;
+        })
             .join("")}
         </div>
       </div>`

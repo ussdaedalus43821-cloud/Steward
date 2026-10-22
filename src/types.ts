@@ -265,7 +265,7 @@ export interface PromotionOffer {
 export interface CareerPosting {
   id: string;
   name: string;
-  riskLabel: "Stable" | "Elevated Risk" | "High Risk";
+  riskLabel: "Stable" | "Elevated Risk" | "High Risk" | "Golden Star";
   scaleMultiplier: number;
   pensionFundedRatio: number;
   description: string;

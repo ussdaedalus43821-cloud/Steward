@@ -130,4 +130,33 @@ export function generateCareerPostings(rng) {
         };
     });
 }
+// A rare fourth tier above the regular postings: a decade of truly exceptional governance (not
+// just "good enough to be promoted," but near-flawless on every scorecard axis at once) opens the
+// door to a single superpower-scale posting -- the scale of a dominant global power, not just a
+// bigger country.
+const GOLDEN_STAR_YEARS_REQUIRED = 10;
+const GOLDEN_STAR_SCORE_THRESHOLD = 95;
+const GOLDEN_STAR_SCALE_MULTIPLIER = 300;
+const GOLDEN_STAR_PENSION_FUNDED_RATIO = 0.55;
+const GOLDEN_STAR_NAMES = ["People's Dominion", "Celestial Empire", "Pan-Continental Union", "Supreme Federation"];
+export function isEligibleForGoldenStarPosting(j) {
+    if (j.tier !== "country")
+        return false;
+    if (j.oversight.level !== "normal")
+        return false;
+    const recent = j.scorecardHistory.slice(-GOLDEN_STAR_YEARS_REQUIRED);
+    if (recent.length < GOLDEN_STAR_YEARS_REQUIRED)
+        return false;
+    return recent.every((y) => y.score >= GOLDEN_STAR_SCORE_THRESHOLD);
+}
+export function generateGoldenStarPosting(rng) {
+    return {
+        id: nextId("posting"),
+        name: rng.pick(GOLDEN_STAR_NAMES),
+        riskLabel: "Golden Star",
+        scaleMultiplier: GOLDEN_STAR_SCALE_MULTIPLIER,
+        pensionFundedRatio: GOLDEN_STAR_PENSION_FUNDED_RATIO,
+        description: "A decade of near-flawless governance has drawn interest from one of the world's dominant superpowers -- a singular, massive opportunity on a different scale entirely.",
+    };
+}
 //# sourceMappingURL=career.js.map
