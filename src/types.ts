@@ -317,9 +317,15 @@ export interface CareerState {
 }
 
 export interface SaveFile {
+  // The save SCHEMA version -- gates whether loadOrCreate() trusts this file's shape, bumped
+  // only on a breaking format change. Not a build/release counter; see gameVersion for that.
   version: number;
   savedAtMonth: number;
   career: CareerState;
+  // Which shipped build wrote this file (see src/version.ts) -- purely informational, never
+  // checked for compatibility. Optional because saves made before this field existed won't have
+  // it (and don't need to; everything still loads).
+  gameVersion?: string;
 }
 
 /** A player-made snapshot of the full career at some point in time, so a mistake (or a

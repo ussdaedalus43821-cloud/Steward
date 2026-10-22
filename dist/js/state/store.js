@@ -2,6 +2,7 @@ import { Rng } from "../utils/random.js";
 import { nextId } from "../utils/id.js";
 import { formatMonth } from "../utils/format.js";
 import { CLOCK_SPEED_MS_PER_MONTH } from "../sim/constants.js";
+import { GAME_VERSION } from "../version.js";
 import { createNewCareer } from "../sim/newGame.js";
 import { acceptPromotion, applyCareerPosting, declinePromotion, petitionForReclassification, startNextJobAfterEmergencyManager, tickMonth, } from "../sim/engine.js";
 import { cancelProject, fundProject, proposeProject, startProject, } from "../sim/capitalProjects.js";
@@ -70,6 +71,7 @@ class GameStore {
                 version: SAVE_VERSION,
                 savedAtMonth: this.career.clockMonth,
                 career: this.career,
+                gameVersion: GAME_VERSION,
             };
             localStorage.setItem(SAVE_KEY, JSON.stringify(save));
         }
@@ -240,6 +242,7 @@ class GameStore {
             version: SAVE_VERSION,
             savedAtMonth: this.career.clockMonth,
             career: this.career,
+            gameVersion: GAME_VERSION,
         };
     }
     importSave(raw) {
