@@ -7,6 +7,12 @@ export const BASE_TAXABLE_SALES_PER_CAPITA = 14000;
 export const BASE_INCOME_PER_CAPITA = 32000;
 export const BASE_UTILITY_SPEND_PER_CAPITA = 420;
 export const DEPRECIATION_RATE = 0.033; // ~30yr useful life, straight-line
+// Real municipal utilities commonly make a "payment in lieu of taxes" (PILOT) or franchise-fee
+// transfer to the General Fund out of their own profitable months -- compensation for using the
+// public right-of-way and the general government services (accounting, HR, legal) that support
+// them. Without this, a profitable utility just accumulates cash that can never help the
+// General Fund, which isn't how real enterprise funds work.
+export const ENTERPRISE_PILOT_RATE = 0.25;
 
 function economicFactor(j: PlayerJurisdiction): number {
   return clamp(j.vitals.economicHealth / 100, 0.35, 1.6);
@@ -25,6 +31,7 @@ export function ensureEnterpriseFunds(j: PlayerJurisdiction): void {
     ytdRevenue: 0,
     ytdExpenditures: 0,
     subsidyFromGeneralFundYtd: 0,
+    pilotPaidToGeneralFundYtd: 0,
   });
   // The seed balance is a real asset appearing for the first time -- recognize it on the
   // equity side too, or the balance check reads "out of balance" the moment this fund exists.
@@ -38,7 +45,19 @@ export function tickEnterpriseFundsMonthly(j: PlayerJurisdiction): void {
     const monthlyNet = (annualRevenue - annualExpenditure) / 12;
     ef.ytdRevenue += annualRevenue / 12;
     ef.ytdExpenditures += annualExpenditure / 12;
-    ef.fundBalance += monthlyNet;
+    if (monthlyNet > 0) {
+      // PILOT transfer out of this month's profit, before it ever reaches the utility's own
+      // balance -- a real General Fund revenue, not an internal bookkeeping shuffle, so it goes
+      // through ytdRevenue like any other receipt. Total net position is unaffected either way:
+      // it is still just the same monthlyNet moving between two asset buckets.
+      const pilot = monthlyNet * ENTERPRISE_PILOT_RATE;
+      ef.fundBalance += monthlyNet - pilot;
+      ef.pilotPaidToGeneralFundYtd += pilot;
+      j.generalFund.fundBalance += pilot;
+      j.generalFund.ytdRevenue += pilot;
+    } else {
+      ef.fundBalance += monthlyNet;
+    }
     j.netPositionTracked += monthlyNet;
     if (ef.fundBalance < 0) {
       const subsidy = -ef.fundBalance;

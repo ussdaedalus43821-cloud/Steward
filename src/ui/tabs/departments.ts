@@ -73,12 +73,13 @@ export function renderDepartments(container: HTMLElement): void {
           <tr><td>Fund Balance</td><td class="num">${formatMoney(ef.fundBalance)}</td></tr>
           <tr><td>YTD Revenue</td><td class="num">${formatMoney(ef.ytdRevenue)}</td></tr>
           <tr><td>YTD Expenditures</td><td class="num">${formatMoney(ef.ytdExpenditures)}</td></tr>
+          <tr><td>PILOT Paid to General Fund</td><td class="num">${formatMoney(ef.pilotPaidToGeneralFundYtd)}</td></tr>
           ${ef.subsidyFromGeneralFundYtd > 0 ? `<tr><td>Subsidized from General Fund</td><td class="num">${formatMoney(ef.subsidyFromGeneralFundYtd)}</td></tr>` : ""}
         </table>
         <div class="field-row">
           <label class="field">Fee Rate</label>
           ${dualInputRow("enterprise", ef.key, ef.feeRate, 0, 100, 1)}
-          <div class="field-hint">Meant to run on its own fee revenue. Chronic subsidy from the General Fund is a real red flag.</div>
+          <div class="field-hint">Meant to run on its own fee revenue. When profitable, 25% of each month's net income transfers to the General Fund as a payment in lieu of taxes (PILOT) -- real revenue there, not just a number sitting in this fund. Chronic subsidy from the General Fund is a real red flag.</div>
         </div>
         ${ef.subsidyFromGeneralFundYtd > 0 ? `<p class="field-hint" style="color:var(--warn);">This enterprise fund has drawn ${formatMoney(ef.subsidyFromGeneralFundYtd)} from the General Fund this year instead of running independently.</p>` : ""}
       </div>`

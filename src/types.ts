@@ -101,6 +101,7 @@ export interface EnterpriseFund {
   ytdRevenue: number;
   ytdExpenditures: number;
   subsidyFromGeneralFundYtd: number;
+  pilotPaidToGeneralFundYtd: number;
 }
 
 export interface PensionSystem {
