@@ -107,7 +107,10 @@ class GameStore {
       this.timer = null;
     }
     const speed = this.career.clockSpeed;
-    if (speed === 0 || this.career.gameOverInfo) return;
+    // A pending promotion offer blocks play until the player accepts or declines it -- the
+    // clock must not keep advancing (and possibly firing more events, or another offer) while
+    // that modal is up and uninteractable.
+    if (speed === 0 || this.career.gameOverInfo || this.career.pendingPromotionOffer) return;
     const ms = CLOCK_SPEED_MS_PER_MONTH[speed] ?? 2600;
     this.timer = setTimeout(() => {
       this.doTick();
@@ -116,7 +119,7 @@ class GameStore {
   }
 
   private doTick(): void {
-    if (this.career.gameOverInfo) return;
+    if (this.career.gameOverInfo || this.career.pendingPromotionOffer) return;
     tickMonth(this.career, this.rng);
     this.notify();
   }
@@ -212,11 +215,13 @@ class GameStore {
 
   acceptPromotion(): void {
     acceptPromotion(this.career, this.rng);
+    this.scheduleTick();
     this.notify();
   }
 
   declinePromotion(): void {
     declinePromotion(this.career);
+    this.scheduleTick();
     this.notify();
   }
 
