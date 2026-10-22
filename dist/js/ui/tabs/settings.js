@@ -2,7 +2,7 @@ import { store } from "../../state/store.js";
 import { formatMonth, formatPercent } from "../../utils/format.js";
 import { TIER_LABELS } from "../../sim/constants.js";
 import { icon } from "../icons.js";
-import { GAME_BUILD_COMMIT, GAME_VERSION } from "../../version.js";
+import { GAME_BUILD, GAME_BUILD_COMMIT, GAME_VERSION } from "../../version.js";
 function escapeText(s) {
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 }
@@ -77,7 +77,10 @@ export function renderSettings(container) {
       </div>
       <div class="card">
         <h3>Save Data</h3>
-        <p class="field-hint">App version <strong>${GAME_VERSION}</strong> <span style="color:var(--ink-faint);">(commit ${GAME_BUILD_COMMIT})</span> — written into every save from here on, so a save file (or a bug report) can be traced back to the exact shipped change that produced it.</p>
+        <div style="margin-bottom:10px;">
+          <div style="font-size:1.15rem;font-weight:800;font-family:'Inter Tight',sans-serif;">${GAME_VERSION}</div>
+          <div style="font-size:0.72rem;color:var(--ink-faint);margin-top:2px;">${GAME_BUILD} · commit ${GAME_BUILD_COMMIT}</div>
+        </div>
         <p class="field-hint">Steward autosaves to this browser's local storage after every change and every simulated month. Browser storage isn't shared between devices (or reliably kept forever by Safari on iOS for a large save) — export a backup file periodically and import it on another device to carry a career across your Mac and iPhone.</p>
         <button class="btn secondary" id="force-save-btn">Save Now</button>
         <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
