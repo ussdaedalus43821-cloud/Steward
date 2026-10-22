@@ -2,6 +2,7 @@ import type { EconDevProgram, GrowthStage, PlayerJurisdiction } from "../types.j
 import { clamp } from "../utils/format.js";
 import type { Rng } from "../utils/random.js";
 import { GROWTH_STAGE_ORDER, POPULATION_THRESHOLDS, stageIndex } from "./constants.js";
+import { economicHealthCrisisAdjustment } from "./crisis.js";
 import { averageServiceQuality } from "./departments.js";
 import { fundBalanceRatio } from "./fiscal.js";
 
@@ -53,7 +54,11 @@ export function updateVitals(j: PlayerJurisdiction, economyMultiplier: number): 
   v.maintenanceBacklog = clamp(100 - v.infrastructureCondition, 0, 100);
 
   const target = clamp(
-    55 + (avgQuality - 50) * 0.3 + (v.infrastructureCondition - 55) * 0.25 + (economyMultiplier - 1) * 45,
+    55 +
+      (avgQuality - 50) * 0.3 +
+      (v.infrastructureCondition - 55) * 0.25 +
+      (economyMultiplier - 1) * 45 +
+      economicHealthCrisisAdjustment(j),
     10,
     130
   );

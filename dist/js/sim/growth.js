@@ -1,5 +1,6 @@
 import { clamp } from "../utils/format.js";
 import { GROWTH_STAGE_ORDER, POPULATION_THRESHOLDS, stageIndex } from "./constants.js";
+import { economicHealthCrisisAdjustment } from "./crisis.js";
 import { averageServiceQuality } from "./departments.js";
 import { fundBalanceRatio } from "./fiscal.js";
 const BASELINE_EFFECTIVE_RATE = {
@@ -39,7 +40,11 @@ export function updateVitals(j, economyMultiplier) {
     const maintenanceEffect = publicWorks ? ((publicWorks.serviceQuality - 50) / 50) * 1.4 : 0;
     v.infrastructureCondition = clamp(v.infrastructureCondition - decay + maintenanceEffect, 0, 100);
     v.maintenanceBacklog = clamp(100 - v.infrastructureCondition, 0, 100);
-    const target = clamp(55 + (avgQuality - 50) * 0.3 + (v.infrastructureCondition - 55) * 0.25 + (economyMultiplier - 1) * 45, 10, 130);
+    const target = clamp(55 +
+        (avgQuality - 50) * 0.3 +
+        (v.infrastructureCondition - 55) * 0.25 +
+        (economyMultiplier - 1) * 45 +
+        economicHealthCrisisAdjustment(j), 10, 130);
     v.economicHealth = v.economicHealth + (target - v.economicHealth) * 0.25;
     v.taxCompetitivenessIndex = computeTaxCompetitivenessIndex(j);
     v.assessedValuePerCapita = 55000 * clamp(v.economicHealth / 100, 0.35, 1.6);

@@ -2,6 +2,7 @@ import type { GameEvent, PlayerJurisdiction } from "../types.js";
 import { nextId } from "../utils/id.js";
 import { clamp } from "../utils/format.js";
 import type { Rng } from "../utils/random.js";
+import { CLIMATE_DISASTER_DAMAGE_MULTIPLIER, CLIMATE_DISASTER_STORM_CHANCE_MULTIPLIER, isClimateDisasterActive } from "./crisis.js";
 import { estimatedAnnualExpenditure } from "./fiscal.js";
 
 export interface EconomyState {
@@ -43,11 +44,14 @@ export function tickRandomEvents(
   // estimatedAnnualExpenditure is already a correct annual figure at any point in the year,
   // so it alone is the right fallback before a jurisdiction's first fiscal close.
   const budgetScale = Math.max(j.generalFund.lastYearRevenue, estimatedAnnualExpenditure(j));
+  const climateDisaster = isClimateDisasterActive(j);
+  const stormChance = 0.012 * (climateDisaster ? CLIMATE_DISASTER_STORM_CHANCE_MULTIPLIER : 1);
 
-  if (rng.chance(0.012)) {
+  if (rng.chance(stormChance)) {
     const severity = rng.chance(0.35) ? "major" : "moderate";
-    const damage = severity === "major" ? rng.range(9, 18) : rng.range(3, 8);
-    const cost = (severity === "major" ? rng.range(0.08, 0.18) : rng.range(0.02, 0.06)) * budgetScale;
+    const damageMultiplier = climateDisaster ? CLIMATE_DISASTER_DAMAGE_MULTIPLIER : 1;
+    const damage = (severity === "major" ? rng.range(9, 18) : rng.range(3, 8)) * damageMultiplier;
+    const cost = (severity === "major" ? rng.range(0.08, 0.18) : rng.range(0.02, 0.06)) * budgetScale * damageMultiplier;
     j.vitals.infrastructureCondition = clamp(j.vitals.infrastructureCondition - damage, 0, 100);
     j.generalFund.fundBalance -= cost;
     j.generalFund.ytdExpenditures += cost;

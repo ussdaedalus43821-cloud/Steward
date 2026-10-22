@@ -1,6 +1,7 @@
 import type { Bond, BondType, CreditRating, PlayerJurisdiction } from "../types.js";
 import { nextId } from "../utils/id.js";
 import { BASE_INTEREST_RATE, CREDIT_RATING_SPREAD, stageAtLeast } from "./constants.js";
+import { bondRateCrisisMultiplier } from "./crisis.js";
 
 export function interestRateFor(type: BondType, rating: CreditRating): number {
   const spread = CREDIT_RATING_SPREAD[rating];
@@ -34,7 +35,7 @@ export function issueBond(
   label: string,
   projectId?: string
 ): Bond {
-  const annualRate = interestRateFor(type, j.creditRating);
+  const annualRate = interestRateFor(type, j.creditRating) * bondRateCrisisMultiplier(j);
   const annualPayment = amortizedAnnualPayment(principal, annualRate, termYears);
   const bond: Bond = {
     id: nextId("bond"),

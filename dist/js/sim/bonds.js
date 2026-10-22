@@ -1,5 +1,6 @@
 import { nextId } from "../utils/id.js";
 import { BASE_INTEREST_RATE, CREDIT_RATING_SPREAD, stageAtLeast } from "./constants.js";
+import { bondRateCrisisMultiplier } from "./crisis.js";
 export function interestRateFor(type, rating) {
     const spread = CREDIT_RATING_SPREAD[rating];
     const revenueBondPremium = type === "revenue" ? 0.006 : 0;
@@ -23,7 +24,7 @@ export function canIssueRevenueBond(j) {
     return j.tier === "municipality" && j.stage === "home_rule_city";
 }
 export function issueBond(j, type, principal, termYears, currentMonth, label, projectId) {
-    const annualRate = interestRateFor(type, j.creditRating);
+    const annualRate = interestRateFor(type, j.creditRating) * bondRateCrisisMultiplier(j);
     const annualPayment = amortizedAnnualPayment(principal, annualRate, termYears);
     const bond = {
         id: nextId("bond"),

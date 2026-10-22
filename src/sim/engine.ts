@@ -26,6 +26,7 @@ import {
 } from "./constants.js";
 import { ensureDepartmentBudgets, tickDepartmentRamps, updateDepartmentServiceQuality } from "./departments.js";
 import { computeCreditRating } from "./creditRating.js";
+import { pensionLiabilityGrowthMultiplier, rollNationalCrisis } from "./crisis.js";
 import { advanceEconomyCycle, tickRandomEvents } from "./events.js";
 import {
   applyAnnualPopulationGrowth,
@@ -44,6 +45,7 @@ import { createPlayerJurisdiction } from "./newGame.js";
 import { updateOversight } from "./oversight.js";
 import { annualPensionTick } from "./pension.js";
 import {
+  applySeparatistPressure,
   ensureSubJurisdictions,
   simulateSubJurisdictionTick,
   syncParentPopulationFromChildren,
@@ -151,7 +153,7 @@ function runAnnualClose(career: CareerState, rng: Rng): GameEvent[] {
 
   if (j.pension) {
     const unfundedBefore = Math.max(0, j.pension.actuarialLiability - j.pension.assets);
-    annualPensionTick(j.pension, career.economyMultiplier, rng);
+    annualPensionTick(j.pension, career.economyMultiplier, rng, pensionLiabilityGrowthMultiplier(j));
     const unfundedAfter = Math.max(0, j.pension.actuarialLiability - j.pension.assets);
     // The monthly cash contribution is already reflected continuously; this is the exact
     // remaining piece -- however the unfunded liability actually moved this year (normal
@@ -163,6 +165,9 @@ function runAnnualClose(career: CareerState, rng: Rng): GameEvent[] {
   if (tierConfig.hasSubJurisdictions && tierConfig.subJurisdictionTier) {
     ensureSubJurisdictions(j, tierConfig.subJurisdictionTier, 6, rng);
     for (const child of j.subJurisdictions ?? []) simulateSubJurisdictionTick(child, career.economyMultiplier, rng);
+    if (j.tier === "country") {
+      events.push(...applySeparatistPressure(j, rng, career.clockMonth));
+    }
     syncParentPopulationFromChildren(j);
   }
 
@@ -363,6 +368,21 @@ export function applyCareerPosting(career: CareerState, postingId: string, rng: 
     kind: "promotion",
     severity: "good",
   });
+
+  // Every Golden Star posting is, by definition, a repeat tenure at the top -- randomize a
+  // fresh difficulty flavor each time rather than ever reusing the last one.
+  if (posting.riskLabel === "Golden Star") {
+    const crisis = rollNationalCrisis(rng);
+    career.jurisdiction.activeCrisis = crisis;
+    career.eventLog.push({
+      id: nextId("evt"),
+      month: career.clockMonth,
+      title: `National Crisis: ${crisis.label}`,
+      description: crisis.description,
+      kind: "crisis",
+      severity: "warning",
+    });
+  }
 }
 
 export function startNextJobAfterEmergencyManager(career: CareerState, rng: Rng): void {

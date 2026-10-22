@@ -5,13 +5,14 @@ import { buildTenureRecord, generateCareerPostings, generateGoldenStarPosting, i
 import { ADMIN_EFFICIENCY_CAP, ADMIN_EFFICIENCY_PER_PROJECT, getTierConfig, MONTHS_PER_YEAR, OPERATING_GRANT_ANNUAL_RATE, OPERATING_GRANT_COVERAGE_RATE, OPERATING_GRANT_POOL_CAP_MULTIPLE, } from "./constants.js";
 import { ensureDepartmentBudgets, tickDepartmentRamps, updateDepartmentServiceQuality } from "./departments.js";
 import { computeCreditRating } from "./creditRating.js";
+import { pensionLiabilityGrowthMultiplier, rollNationalCrisis } from "./crisis.js";
 import { advanceEconomyCycle, tickRandomEvents } from "./events.js";
 import { applyAnnualPopulationGrowth, isEligibleForReclassification, resolveReferendum, updateVitals, } from "./growth.js";
 import { applyMonthlyFiscalFlow, closeFiscalYear, ensureEnterpriseFunds, fundBalanceRatio, tickEnterpriseFundsMonthly, } from "./fiscal.js";
 import { createPlayerJurisdiction } from "./newGame.js";
 import { updateOversight } from "./oversight.js";
 import { annualPensionTick } from "./pension.js";
-import { ensureSubJurisdictions, simulateSubJurisdictionTick, syncParentPopulationFromChildren, } from "./subJurisdictions.js";
+import { applySeparatistPressure, ensureSubJurisdictions, simulateSubJurisdictionTick, syncParentPopulationFromChildren, } from "./subJurisdictions.js";
 export function tickMonth(career, rng) {
     career.clockMonth += 1;
     const j = career.jurisdiction;
@@ -101,7 +102,7 @@ function runAnnualClose(career, rng) {
     updateDepartmentServiceQuality(j);
     if (j.pension) {
         const unfundedBefore = Math.max(0, j.pension.actuarialLiability - j.pension.assets);
-        annualPensionTick(j.pension, career.economyMultiplier, rng);
+        annualPensionTick(j.pension, career.economyMultiplier, rng, pensionLiabilityGrowthMultiplier(j));
         const unfundedAfter = Math.max(0, j.pension.actuarialLiability - j.pension.assets);
         // The monthly cash contribution is already reflected continuously; this is the exact
         // remaining piece -- however the unfunded liability actually moved this year (normal
@@ -113,6 +114,9 @@ function runAnnualClose(career, rng) {
         ensureSubJurisdictions(j, tierConfig.subJurisdictionTier, 6, rng);
         for (const child of j.subJurisdictions ?? [])
             simulateSubJurisdictionTick(child, career.economyMultiplier, rng);
+        if (j.tier === "country") {
+            events.push(...applySeparatistPressure(j, rng, career.clockMonth));
+        }
         syncParentPopulationFromChildren(j);
     }
     const ratingBreakdown = computeCreditRating(j, fundBalanceRatio(j));
@@ -293,6 +297,20 @@ export function applyCareerPosting(career, postingId, rng) {
         kind: "promotion",
         severity: "good",
     });
+    // Every Golden Star posting is, by definition, a repeat tenure at the top -- randomize a
+    // fresh difficulty flavor each time rather than ever reusing the last one.
+    if (posting.riskLabel === "Golden Star") {
+        const crisis = rollNationalCrisis(rng);
+        career.jurisdiction.activeCrisis = crisis;
+        career.eventLog.push({
+            id: nextId("evt"),
+            month: career.clockMonth,
+            title: `National Crisis: ${crisis.label}`,
+            description: crisis.description,
+            kind: "crisis",
+            severity: "warning",
+        });
+    }
 }
 export function startNextJobAfterEmergencyManager(career, rng) {
     career.currentTier = "municipality";

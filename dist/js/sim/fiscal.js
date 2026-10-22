@@ -1,5 +1,6 @@
 import { clamp } from "../utils/format.js";
 import { stageAtLeast } from "./constants.js";
+import { expenditureCrisisMultiplier } from "./crisis.js";
 export const BASE_ASSESSED_VALUE_PER_CAPITA = 55000;
 export const BASE_TAXABLE_SALES_PER_CAPITA = 14000;
 export const BASE_INCOME_PER_CAPITA = 32000;
@@ -149,7 +150,8 @@ export function computeAnnualRevenue(j, tierConfig, economyMultiplier) {
     return { byKey, total };
 }
 export function computeAnnualDepartmentExpenditure(j) {
-    return j.departments.reduce((sum, d) => sum + d.allocated, 0);
+    const base = j.departments.reduce((sum, d) => sum + d.allocated, 0);
+    return base * expenditureCrisisMultiplier(j);
 }
 export function computeAnnualDebtService(j) {
     return j.bonds.reduce((sum, b) => (b.balance > 0 ? sum + b.annualPayment : sum), 0);

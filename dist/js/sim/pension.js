@@ -13,11 +13,11 @@ export function createPensionSystem(initialLiability, fundedRatio) {
         assumedReturnRate: 0.07,
     };
 }
-export function annualPensionTick(pension, economyMultiplier, rng) {
+export function annualPensionTick(pension, economyMultiplier, rng, liabilityGrowthMultiplier = 1) {
     const investmentReturn = pension.assumedReturnRate + (economyMultiplier - 1) * 0.7 + rng.range(-0.035, 0.035);
     pension.assets = Math.max(0, pension.assets * (1 + investmentReturn) + pension.plannedContribution);
     const shortfall = Math.max(0, pension.annualRequiredContribution - pension.plannedContribution);
-    pension.actuarialLiability *= 1.03;
+    pension.actuarialLiability *= 1 + 0.03 * liabilityGrowthMultiplier;
     pension.actuarialLiability += shortfall * 0.5;
     pension.fundedRatio = clamp(pension.assets / pension.actuarialLiability, 0, 3);
     const unfunded = Math.max(0, pension.actuarialLiability - pension.assets);

@@ -6,6 +6,10 @@ function escapeText(s) {
 }
 export function renderSettings(container) {
     const career = store.career;
+    const activeCrisis = career.jurisdiction.activeCrisis;
+    const crisisRow = activeCrisis
+        ? `<tr><td>Active National Crisis</td><td class="num" style="color:var(--warn);">${escapeText(activeCrisis.label)}</td></tr>`
+        : "";
     const tenureRows = career.tenureHistory.length
         ? career.tenureHistory
             .map((t) => `<tr>
@@ -65,7 +69,9 @@ export function renderSettings(container) {
           <tr><td>Reputation</td><td class="num">${career.reputation.toFixed(0)} / 100</td></tr>
           <tr><td>Current Tier</td><td class="num">${TIER_LABELS[career.currentTier]}</td></tr>
           <tr><td>Time Elapsed</td><td class="num">${formatMonth(career.clockMonth)}</td></tr>
+          ${crisisRow}
         </table>
+        ${activeCrisis ? `<p class="field-hint" style="color:var(--warn);">${escapeText(activeCrisis.description)}</p>` : ""}
       </div>
       <div class="card">
         <h3>Save Data</h3>

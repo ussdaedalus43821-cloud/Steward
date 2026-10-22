@@ -126,6 +126,44 @@ export function findNodeById(nodes, id) {
     }
     return null;
 }
+const SEPARATIST_DISTRESS_SERVICE_QUALITY_CEILING = 35;
+const SEPARATIST_DISTRESS_RATINGS = ["CCC", "D"];
+const SEPARATIST_PRESSURE_YEARS_BEFORE_RISK = 3;
+const SEPARATIST_SECESSION_CHANCE_PER_YEAR = 0.08;
+const SEPARATIST_SECESSION_CHANCE_CAP = 0.35;
+/** A baseline mechanic for every country-tier jurisdiction (not a randomized crisis flavor --
+ * see crisis.ts for those): a state-tier sub-jurisdiction left badly neglected for years can
+ * actually secede. Only ever applied to a country's direct children. */
+export function applySeparatistPressure(j, rng, month) {
+    if (j.tier !== "country" || !j.subJurisdictions?.length)
+        return [];
+    const events = [];
+    const survivors = [];
+    for (const node of j.subJurisdictions) {
+        const distressed = node.vitals.avgServiceQuality < SEPARATIST_DISTRESS_SERVICE_QUALITY_CEILING &&
+            SEPARATIST_DISTRESS_RATINGS.includes(node.finance.creditRating);
+        node.separatistPressureYears = distressed
+            ? (node.separatistPressureYears ?? 0) + 1
+            : Math.max(0, (node.separatistPressureYears ?? 0) - 1);
+        if (node.separatistPressureYears >= SEPARATIST_PRESSURE_YEARS_BEFORE_RISK) {
+            const chance = clamp(SEPARATIST_SECESSION_CHANCE_PER_YEAR * (node.separatistPressureYears - (SEPARATIST_PRESSURE_YEARS_BEFORE_RISK - 1)), SEPARATIST_SECESSION_CHANCE_PER_YEAR, SEPARATIST_SECESSION_CHANCE_CAP);
+            if (rng.chance(chance)) {
+                events.push({
+                    id: nextId("evt"),
+                    month,
+                    title: "Separatist Movement Declares Independence",
+                    description: `${node.name}, neglected for years, has formally seceded from ${j.name}.`,
+                    kind: "secession",
+                    severity: "danger",
+                });
+                continue;
+            }
+        }
+        survivors.push(node);
+    }
+    j.subJurisdictions = survivors;
+    return events;
+}
 export function syncParentPopulationFromChildren(j) {
     if (j.subJurisdictions && j.subJurisdictions.length > 0) {
         j.population = j.subJurisdictions.reduce((s, c) => s + c.population, 0);

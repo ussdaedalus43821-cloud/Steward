@@ -183,6 +183,10 @@ export interface SimJurisdiction {
   finance: SimFinance;
   activeCapitalProject: boolean;
   subJurisdictions?: SimJurisdiction[];
+  // Consecutive years this node has been neglected badly enough to risk secession -- only ever
+  // set/read for a country-tier jurisdiction's direct (state-tier) children. See
+  // applySeparatistPressure in subJurisdictions.ts.
+  separatistPressureYears?: number;
 }
 
 export interface EconDevProgram {
@@ -225,6 +229,8 @@ export interface PlayerJurisdiction {
   econDevPrograms: EconDevProgram[];
   scorecardHistory: YearSummary[];
   reclassificationPending?: { targetStage: GrowthStage; referendumMonth: number };
+  // Only ever set on a repeat Golden Star country-tier posting -- see sim/crisis.ts.
+  activeCrisis?: NationalCrisis;
 }
 
 export type GameEventKind =
@@ -235,6 +241,8 @@ export type GameEventKind =
   | "promotion"
   | "project"
   | "reclassification"
+  | "crisis"
+  | "secession"
   | "info";
 
 export interface GameEvent {
@@ -268,6 +276,21 @@ export interface CareerPosting {
   riskLabel: "Stable" | "Elevated Risk" | "High Risk" | "Golden Star";
   scaleMultiplier: number;
   pensionFundedRatio: number;
+  description: string;
+}
+
+export type NationalCrisisType =
+  | "war_footing"
+  | "currency_crisis"
+  | "climate_disaster"
+  | "demographic_crisis"
+  | "trade_war";
+
+/** A randomized, mechanically-real difficulty flavor attached to a repeat Golden Star tenure --
+ * see src/sim/crisis.ts for what each type actually does to the simulation. */
+export interface NationalCrisis {
+  type: NationalCrisisType;
+  label: string;
   description: string;
 }
 
