@@ -43,6 +43,10 @@ export function nextCareerTier(tier: CareerTier): CareerTier | null {
 }
 
 export function isEligibleForPromotion(j: PlayerJurisdiction): boolean {
+  // Country is the top of the career ladder (see CAREER_TIER_ORDER) -- there is nowhere left to
+  // be promoted to, so this must never fire again once there, or acceptPromotion would just
+  // reassign the player to a brand-new country-tier jurisdiction forever.
+  if (j.tier === "country") return false;
   if (j.tier === "municipality" && j.stage !== "home_rule_city") return false;
   if (j.oversight.level !== "normal") return false;
   const recent = j.scorecardHistory.slice(-SUSTAINED_YEARS_REQUIRED);
