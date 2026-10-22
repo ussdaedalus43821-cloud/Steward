@@ -53,6 +53,12 @@ class GameStore {
             this.listeners = this.listeners.filter((l) => l !== listener);
         };
     }
+    /** For dev/devTools.ts only -- career is a public field so console-driven testing can mutate
+     * it directly (e.g. via steward.mutate()), but that bypasses the normal setter methods below,
+     * none of which run afterward to persist the change or re-render. This is that missing step. */
+    refresh() {
+        this.notify();
+    }
     notify() {
         this.persist();
         for (const l of this.listeners)

@@ -8,6 +8,9 @@ import { renderEconDev } from "./ui/tabs/econDev.js";
 import { renderFinancials } from "./ui/tabs/financials.js";
 import { renderSettings } from "./ui/tabs/settings.js";
 import { checkPromotionOffer, renderGameOverOverlay } from "./ui/onboarding.js";
+import { installDevTools } from "./dev/devTools.js";
+
+installDevTools();
 
 let activeTab: TabKey = "overview";
 
