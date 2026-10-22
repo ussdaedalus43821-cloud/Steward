@@ -1,0 +1,206 @@
+import type {
+  CareerTier,
+  CreditRating,
+  GrowthStage,
+  TierConfig,
+} from "../types.js";
+
+export const GROWTH_STAGE_ORDER: GrowthStage[] = [
+  "hamlet",
+  "village",
+  "town",
+  "small_city",
+  "city",
+  "home_rule_city",
+];
+
+export const CAREER_TIER_ORDER: CareerTier[] = ["municipality", "county", "state", "country"];
+
+export const POPULATION_THRESHOLDS: Record<GrowthStage, { min: number; max: number }> = {
+  hamlet: { min: 0, max: 500 },
+  village: { min: 500, max: 2500 },
+  town: { min: 2500, max: 10000 },
+  small_city: { min: 10000, max: 50000 },
+  city: { min: 50000, max: 150000 },
+  home_rule_city: { min: 150000, max: Infinity },
+};
+
+export const STAGE_LABELS: Record<GrowthStage, string> = {
+  hamlet: "Unincorporated Hamlet",
+  village: "Village",
+  town: "Town",
+  small_city: "Small City",
+  city: "City",
+  home_rule_city: "Home-Rule City",
+};
+
+export const STAGE_JOB_TITLE: Record<GrowthStage, string> = {
+  hamlet: "Hamlet Administrator",
+  village: "Village Administrator",
+  town: "Town Manager",
+  small_city: "City Manager",
+  city: "City Manager",
+  home_rule_city: "City Manager (Home Rule)",
+};
+
+export const TIER_LABELS: Record<CareerTier, string> = {
+  municipality: "Municipality",
+  county: "County",
+  state: "State",
+  country: "Country",
+};
+
+export function stageForPopulation(pop: number): GrowthStage {
+  for (const stage of GROWTH_STAGE_ORDER) {
+    const t = POPULATION_THRESHOLDS[stage];
+    if (pop >= t.min && pop < t.max) return stage;
+  }
+  return "home_rule_city";
+}
+
+export function stageIndex(stage: GrowthStage): number {
+  return GROWTH_STAGE_ORDER.indexOf(stage);
+}
+
+export function stageAtLeast(stage: GrowthStage, threshold: GrowthStage): boolean {
+  return stageIndex(stage) >= stageIndex(threshold);
+}
+
+export const CREDIT_RATING_ORDER: CreditRating[] = ["AAA", "AA", "A", "BBB", "BB", "B", "CCC", "D"];
+
+export const CREDIT_RATING_SPREAD: Record<CreditRating, number> = {
+  AAA: 0.005,
+  AA: 0.009,
+  A: 0.015,
+  BBB: 0.024,
+  BB: 0.038,
+  B: 0.055,
+  CCC: 0.085,
+  D: 0.15,
+};
+
+export const BASE_INTEREST_RATE = 0.032;
+
+export const FUND_BALANCE_BENCHMARK_RATIO = 0.16; // ~2 months operating expenditures, GFOA guidance
+export const FUND_BALANCE_WARNING_RATIO = 0.05;
+export const FUND_BALANCE_CRISIS_RATIO = -0.02;
+
+// Real local-government overhead has economies of scale -- fixed costs (clerks, finance
+// office, council) spread across more residents as a jurisdiction grows, so the per-capita
+// cost needed for the same service level eases off rather than staying flat forever.
+export const ECONOMIES_OF_SCALE_REFERENCE_POP = 500;
+export const ECONOMIES_OF_SCALE_RATE = 0.18;
+export const ECONOMIES_OF_SCALE_FLOOR = 0.55;
+
+// A completed Administrative Building capital project (new records system, consolidated
+// facility, etc.) permanently trims General Admin's per-capita cost a bit -- capital
+// investment lowering operating overhead is an ordinary real-world effect, up to a cap.
+export const ADMIN_EFFICIENCY_PER_PROJECT = 0.03;
+export const ADMIN_EFFICIENCY_CAP = 0.2;
+
+// A separate, smaller pool modeling real operating-aid programs (state operating aid, COPS
+// hiring grants) that offset a share of department payroll each year, unlike the capital
+// grant pool which only ever pays for infrastructure.
+export const OPERATING_GRANT_ANNUAL_RATE = 0.02;
+export const OPERATING_GRANT_POOL_CAP_MULTIPLE = 1;
+export const OPERATING_GRANT_COVERAGE_RATE = 0.15;
+
+export const MONTHS_PER_YEAR = 12;
+
+export const CLOCK_SPEED_MS_PER_MONTH: Record<number, number> = {
+  0: 0,
+  1: 2600,
+  4: 900,
+  15: 300,
+};
+
+export const TIER_CONFIGS: Record<CareerTier, TierConfig> = {
+  municipality: {
+    tier: "municipality",
+    jurisdictionNoun: "Municipality",
+    jobTitle: "Manager",
+    hasSubJurisdictions: false,
+    hasPension: false,
+    hasEnterpriseFund: true,
+    goBondUnlockedAtStage: "small_city",
+    revenueBondUnlockedAtStage: "home_rule_city",
+    revenueSources: [
+      { key: "propertyTax", label: "Property Tax", type: "property", cyclical: false },
+      { key: "salesTax", label: "Sales Tax", type: "sales", cyclical: true, unlockedAtStage: "small_city" },
+      { key: "businessLicenseFees", label: "Business License Fees", type: "fee", cyclical: true, unlockedAtStage: "city" },
+      { key: "stateTransfer", label: "State/County Pass-Through Transfers", type: "transfer", cyclical: false },
+    ],
+    departments: [
+      { key: "generalAdmin", label: "General Administration" },
+      { key: "publicWorks", label: "Public Works", unlockedAtStage: "town" },
+      { key: "publicSafety", label: "Public Safety", unlockedAtStage: "town" },
+      { key: "planningZoning", label: "Planning & Zoning", unlockedAtStage: "city" },
+      { key: "socialServices", label: "Social Services", unlockedAtStage: "city" },
+      { key: "economicDevelopment", label: "Economic Development", unlockedAtStage: "small_city" },
+    ],
+  },
+  county: {
+    tier: "county",
+    jurisdictionNoun: "County",
+    jobTitle: "County Administrator",
+    hasSubJurisdictions: true,
+    subJurisdictionTier: "municipality",
+    hasPension: false,
+    hasEnterpriseFund: false,
+    revenueSources: [
+      { key: "countyPropertyTax", label: "County Property Tax (layered)", type: "property", cyclical: false },
+      { key: "courtFees", label: "Court & Recording Fees", type: "fee", cyclical: true },
+      { key: "stateTransfer", label: "State Transfers", type: "transfer", cyclical: false },
+    ],
+    departments: [
+      { key: "countyRoads", label: "County Roads" },
+      { key: "courtsAndJails", label: "Courts & Jails" },
+      { key: "publicHealth", label: "Public Health" },
+      { key: "regionalSocialServices", label: "Regional Social Services" },
+    ],
+  },
+  state: {
+    tier: "state",
+    jurisdictionNoun: "State",
+    jobTitle: "State Budget Director",
+    hasSubJurisdictions: true,
+    subJurisdictionTier: "county",
+    hasPension: true,
+    hasEnterpriseFund: false,
+    revenueSources: [
+      { key: "stateSalesTax", label: "State Sales Tax", type: "sales", cyclical: true },
+      { key: "stateIncomeTax", label: "State Income Tax (optional)", type: "income", cyclical: true },
+      { key: "federalTransfer", label: "Federal Transfers", type: "transfer", cyclical: false },
+    ],
+    departments: [
+      { key: "k12Education", label: "K-12 Education Funding" },
+      { key: "stateHighways", label: "State Highways" },
+      { key: "medicaidHealth", label: "Medicaid-Style Health Program" },
+      { key: "unemploymentInsurance", label: "Unemployment Insurance" },
+    ],
+  },
+  country: {
+    tier: "country",
+    jurisdictionNoun: "Country",
+    jobTitle: "National Budget Director",
+    hasSubJurisdictions: true,
+    subJurisdictionTier: "state",
+    hasPension: true,
+    hasEnterpriseFund: false,
+    revenueSources: [
+      { key: "federalIncomeTax", label: "Federal Income Tax", type: "income", cyclical: true },
+      { key: "federalPayrollTax", label: "Federal Payroll Tax", type: "income", cyclical: true },
+      { key: "tariffsAndOther", label: "Tariffs & Other Receipts", type: "fee", cyclical: true },
+    ],
+    departments: [
+      { key: "entitlementPrograms", label: "Entitlement Programs" },
+      { key: "nationalInfrastructure", label: "National Infrastructure" },
+      { key: "transfersToStates", label: "Transfers to States" },
+      { key: "generalGovernment", label: "General Government" },
+    ],
+  },
+};
+
+export function getTierConfig(tier: CareerTier): TierConfig {
+  return TIER_CONFIGS[tier];
+}

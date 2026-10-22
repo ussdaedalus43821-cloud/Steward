@@ -1,0 +1,330 @@
+import { nextId } from "../utils/id.js";
+import { amortizeBondsAnnual } from "./bonds.js";
+import { tickProjectsMonthly } from "./capitalProjects.js";
+import { buildTenureRecord, generateCareerPostings, generateGoldenStarPosting, isEligibleForCareerPostings, isEligibleForGoldenStarPosting, isEligibleForPromotion, isEmergencyManagerTriggered, recordYearSummary, reputationGainForPromotion, reputationLossForEmergencyManager, } from "./career.js";
+import { ADMIN_EFFICIENCY_CAP, ADMIN_EFFICIENCY_PER_PROJECT, getTierConfig, MONTHS_PER_YEAR, OPERATING_GRANT_ANNUAL_RATE, OPERATING_GRANT_COVERAGE_RATE, OPERATING_GRANT_POOL_CAP_MULTIPLE, } from "./constants.js";
+import { ensureDepartmentBudgets, tickDepartmentRamps, updateDepartmentServiceQuality } from "./departments.js";
+import { computeCreditRating } from "./creditRating.js";
+import { pensionLiabilityGrowthMultiplier, rollNationalCrisis } from "./crisis.js";
+import { advanceEconomyCycle, tickRandomEvents } from "./events.js";
+import { applyAnnualPopulationGrowth, isEligibleForReclassification, resolveReferendum, updateVitals, } from "./growth.js";
+import { applyMonthlyFiscalFlow, closeFiscalYear, ensureEnterpriseFunds, fundBalanceRatio, tickEnterpriseFundsMonthly, } from "./fiscal.js";
+import { createPlayerJurisdiction } from "./newGame.js";
+import { updateOversight } from "./oversight.js";
+import { annualPensionTick } from "./pension.js";
+import { applySeparatistPressure, ensureSubJurisdictions, simulateSubJurisdictionTick, syncParentPopulationFromChildren, } from "./subJurisdictions.js";
+export function tickMonth(career, rng) {
+    career.clockMonth += 1;
+    const j = career.jurisdiction;
+    const tierConfig = getTierConfig(j.tier);
+    const economyState = { cyclePosition: career.economyCyclePosition, multiplier: career.economyMultiplier };
+    advanceEconomyCycle(economyState);
+    career.economyCyclePosition = economyState.cyclePosition;
+    career.economyMultiplier = economyState.multiplier;
+    tickDepartmentRamps(j);
+    applyMonthlyFiscalFlow(j, tierConfig, career.economyMultiplier);
+    tickEnterpriseFundsMonthly(j);
+    const events = [];
+    const projectResult = tickProjectsMonthly(j, career.clockMonth, rng);
+    for (const completed of projectResult.completed) {
+        j.vitals.infrastructureCondition = Math.min(100, j.vitals.infrastructureCondition + 7);
+        if (completed.category === "Administrative Building") {
+            j.adminEfficiencyBonus = Math.min(ADMIN_EFFICIENCY_CAP, (j.adminEfficiencyBonus ?? 0) + ADMIN_EFFICIENCY_PER_PROJECT);
+        }
+        events.push({
+            id: nextId("evt"),
+            month: career.clockMonth,
+            title: "Capital Project Complete",
+            description: `${completed.name} is complete and now in service.`,
+            kind: "project",
+            severity: "good",
+        });
+    }
+    for (const overrun of projectResult.overrunEvents) {
+        events.push({
+            id: nextId("evt"),
+            month: career.clockMonth,
+            title: "Cost Overrun",
+            description: `${overrun.project.name} costs increased by ${(overrun.pctIncrease * 100).toFixed(0)}%.`,
+            kind: "project",
+            severity: "warning",
+        });
+    }
+    events.push(...tickRandomEvents(j, career.clockMonth, career.economyMultiplier, rng));
+    if (j.reclassificationPending && career.clockMonth >= j.reclassificationPending.referendumMonth) {
+        const result = resolveReferendum(j, rng);
+        if (result.passed) {
+            ensureDepartmentBudgets(j, tierConfig, true);
+            ensureEnterpriseFunds(j);
+            events.push({
+                id: nextId("evt"),
+                month: career.clockMonth,
+                title: "Referendum Passed",
+                description: `Residents voted to reclassify ${j.name} as a ${result.stage?.replace(/_/g, " ")}.`,
+                kind: "reclassification",
+                severity: "good",
+            });
+        }
+        else {
+            events.push({
+                id: nextId("evt"),
+                month: career.clockMonth,
+                title: "Referendum Failed",
+                description: `The reclassification referendum for ${j.name} did not pass. It can be attempted again later.`,
+                kind: "reclassification",
+                severity: "warning",
+            });
+        }
+    }
+    for (const program of j.econDevPrograms) {
+        if (program.active)
+            program.monthsRemaining -= 1;
+        if (program.monthsRemaining <= 0)
+            program.active = false;
+    }
+    if (career.clockMonth % MONTHS_PER_YEAR === 0) {
+        events.push(...runAnnualClose(career, rng));
+    }
+    career.eventLog.push(...events);
+    if (career.eventLog.length > 200)
+        career.eventLog.splice(0, career.eventLog.length - 200);
+    return events;
+}
+function runAnnualClose(career, rng) {
+    const j = career.jurisdiction;
+    const tierConfig = getTierConfig(j.tier);
+    const events = [];
+    const year = Math.floor(career.clockMonth / MONTHS_PER_YEAR);
+    closeFiscalYear(j, tierConfig);
+    const { missedPayment } = amortizeBondsAnnual(j);
+    const growthRate = applyAnnualPopulationGrowth(j, career.economyMultiplier);
+    updateVitals(j, career.economyMultiplier);
+    updateDepartmentServiceQuality(j);
+    if (j.pension) {
+        const unfundedBefore = Math.max(0, j.pension.actuarialLiability - j.pension.assets);
+        annualPensionTick(j.pension, career.economyMultiplier, rng, pensionLiabilityGrowthMultiplier(j));
+        const unfundedAfter = Math.max(0, j.pension.actuarialLiability - j.pension.assets);
+        // The monthly cash contribution is already reflected continuously; this is the exact
+        // remaining piece -- however the unfunded liability actually moved this year (normal
+        // cost growth, investment gains/losses), applied the same instant the liability itself
+        // changes, so the balance check never drifts between annual closes.
+        j.netPositionTracked -= unfundedAfter - unfundedBefore;
+    }
+    if (tierConfig.hasSubJurisdictions && tierConfig.subJurisdictionTier) {
+        ensureSubJurisdictions(j, tierConfig.subJurisdictionTier, 6, rng);
+        for (const child of j.subJurisdictions ?? [])
+            simulateSubJurisdictionTick(child, career.economyMultiplier, rng);
+        if (j.tier === "country") {
+            events.push(...applySeparatistPressure(j, rng, career.clockMonth));
+        }
+        syncParentPopulationFromChildren(j);
+    }
+    const ratingBreakdown = computeCreditRating(j, fundBalanceRatio(j));
+    j.creditRating = ratingBreakdown.rating;
+    const oversightResult = updateOversight(j, missedPayment);
+    if (oversightResult.changed) {
+        events.push({
+            id: nextId("evt"),
+            month: career.clockMonth,
+            title: `Fiscal Oversight: ${oversightResult.newLevel.toUpperCase()}`,
+            description: oversightMessage(oversightResult.newLevel),
+            kind: "oversight",
+            severity: oversightResult.newLevel === "normal"
+                ? "good"
+                : oversightResult.newLevel === "emergency"
+                    ? "danger"
+                    : "warning",
+        });
+    }
+    recordYearSummary(j, year, growthRate);
+    ensureDepartmentBudgets(j, tierConfig);
+    ensureEnterpriseFunds(j);
+    // Unused grant money carries forward (capped, so an untouched pool can't grow forever) —
+    // it should not silently reset to a tiny annual trickle if you haven't spent it yet.
+    const annualGrantAllocation = j.generalFund.lastYearRevenue * 0.04;
+    const grantPoolCap = j.generalFund.lastYearRevenue * 3;
+    j.grantPoolRemaining = Math.min(j.grantPoolRemaining + annualGrantAllocation, grantPoolCap);
+    // Operating grant pool: separate from the capital grant pool above, this models real
+    // state/federal operating-aid programs (state operating aid, COPS hiring grants) that
+    // offset a share of department payroll each year instead of paying for capital projects.
+    const departmentExpenditure = j.departments.reduce((sum, d) => sum + d.allocated, 0);
+    const operatingGrantAward = Math.min(departmentExpenditure * OPERATING_GRANT_COVERAGE_RATE, j.operatingGrantPoolRemaining ?? 0);
+    if (operatingGrantAward > 0) {
+        j.generalFund.fundBalance += operatingGrantAward;
+        j.netPositionTracked += operatingGrantAward;
+        j.operatingGrantPoolRemaining = (j.operatingGrantPoolRemaining ?? 0) - operatingGrantAward;
+        events.push({
+            id: nextId("evt"),
+            month: career.clockMonth,
+            title: "Operating Grant Received",
+            description: `State/federal operating aid covered $${Math.round(operatingGrantAward).toLocaleString()} of this year's department budget.`,
+            kind: "economy",
+            severity: "good",
+        });
+    }
+    const operatingGrantAllocation = j.generalFund.lastYearRevenue * OPERATING_GRANT_ANNUAL_RATE;
+    const operatingGrantCap = j.generalFund.lastYearRevenue * OPERATING_GRANT_POOL_CAP_MULTIPLE;
+    j.operatingGrantPoolRemaining = Math.min((j.operatingGrantPoolRemaining ?? 0) + operatingGrantAllocation, operatingGrantCap);
+    if (isEmergencyManagerTriggered(career)) {
+        const record = buildTenureRecord(j, "emergency_manager");
+        record.months = career.clockMonth - j.foundedMonth;
+        career.tenureHistory.push(record);
+        career.reputation = Math.max(0, career.reputation - reputationLossForEmergencyManager());
+        career.gameOverInfo = {
+            jurisdictionName: j.name,
+            tier: j.tier,
+            reason: "An emergency manager has been installed and your tenure has ended.",
+            finalStats: j.scorecardHistory[j.scorecardHistory.length - 1] ?? null,
+        };
+        events.push({
+            id: nextId("evt"),
+            month: career.clockMonth,
+            title: "Tenure Ended",
+            description: `${j.name} has been placed under an emergency manager. Your tenure here has ended.`,
+            kind: "oversight",
+            severity: "danger",
+        });
+        return events;
+    }
+    if (isEligibleForPromotion(j) && !career.pendingPromotionOffer) {
+        career.pendingPromotionOffer = {
+            toTier: nextTierFor(j.tier),
+            message: `Sustained strong performance at ${j.name} has caught attention. A bigger job is available.`,
+        };
+        events.push({
+            id: nextId("evt"),
+            month: career.clockMonth,
+            title: "Recruitment Offer",
+            description: career.pendingPromotionOffer.message,
+            kind: "promotion",
+            severity: "good",
+        });
+    }
+    // Country has nowhere higher to be promoted into -- sustained strong performance there instead
+    // surfaces a standing list of other country-tier postings (see Settings) to apply to whenever
+    // the player wants, rather than a blocking modal that forces an immediate decision.
+    if (!career.careerPostings?.length && isEligibleForCareerPostings(j)) {
+        career.careerPostings = generateCareerPostings(rng);
+        events.push({
+            id: nextId("evt"),
+            month: career.clockMonth,
+            title: "New Career Opportunities",
+            description: `Other nations have taken notice of your work at ${j.name}. New postings are available whenever you're ready.`,
+            kind: "promotion",
+            severity: "good",
+        });
+    }
+    // Independent of (and strictly rarer than) the regular postings above -- a decade at 95+ opens
+    // a single superpower-scale posting on top of whatever else is currently offered.
+    if (isEligibleForGoldenStarPosting(j) && !(career.careerPostings ?? []).some((p) => p.riskLabel === "Golden Star")) {
+        career.careerPostings = [...(career.careerPostings ?? []), generateGoldenStarPosting(rng)];
+        events.push({
+            id: nextId("evt"),
+            month: career.clockMonth,
+            title: "Golden Star Opportunity",
+            description: `A decade of near-flawless governance at ${j.name} has drawn interest from one of the world's dominant superpowers. A singular, massive opportunity is now available.`,
+            kind: "promotion",
+            severity: "good",
+        });
+    }
+    return events;
+}
+function nextTierFor(tier) {
+    if (tier === "municipality")
+        return "county";
+    if (tier === "county")
+        return "state";
+    return "country";
+}
+function oversightMessage(level) {
+    switch (level) {
+        case "warning":
+            return "Fiscal indicators have slipped. This is a formal warning — sustained decline risks state oversight.";
+        case "oversight":
+            return "A state oversight board has been established and can veto budget decisions until finances stabilize.";
+        case "emergency":
+            return "Finances have deteriorated into crisis. An emergency manager may be installed if this is not reversed.";
+        default:
+            return "Fiscal indicators have returned to normal. Independent budget authority is restored.";
+    }
+}
+export function acceptPromotion(career, rng) {
+    if (!career.pendingPromotionOffer)
+        return;
+    const j = career.jurisdiction;
+    const record = buildTenureRecord(j, "promoted");
+    record.months = career.clockMonth - j.foundedMonth;
+    career.tenureHistory.push(record);
+    career.reputation = Math.min(100, career.reputation + reputationGainForPromotion(j));
+    const nextTier = career.pendingPromotionOffer.toTier;
+    career.currentTier = nextTier;
+    career.jurisdiction = createPlayerJurisdiction(nextTier, career.clockMonth, rng);
+    career.pendingPromotionOffer = undefined;
+    career.eventLog.push({
+        id: nextId("evt"),
+        month: career.clockMonth,
+        title: "Promoted",
+        description: `You have been appointed to lead ${career.jurisdiction.name} (${nextTier}).`,
+        kind: "promotion",
+        severity: "good",
+    });
+}
+export function declinePromotion(career) {
+    career.pendingPromotionOffer = undefined;
+}
+export function applyCareerPosting(career, postingId, rng) {
+    const j = career.jurisdiction;
+    if (j.tier !== "country")
+        return;
+    const posting = career.careerPostings?.find((p) => p.id === postingId);
+    if (!posting)
+        return;
+    const record = buildTenureRecord(j, "promoted");
+    record.months = career.clockMonth - j.foundedMonth;
+    career.tenureHistory.push(record);
+    career.reputation = Math.min(100, career.reputation + reputationGainForPromotion(j));
+    career.jurisdiction = createPlayerJurisdiction("country", career.clockMonth, rng, {
+        subJurisdictionMultiplier: posting.scaleMultiplier,
+        pensionFundedRatio: posting.pensionFundedRatio,
+        nameOverride: posting.name,
+    });
+    career.careerPostings = undefined;
+    career.eventLog.push({
+        id: nextId("evt"),
+        month: career.clockMonth,
+        title: "New Posting Accepted",
+        description: `You have been appointed to lead ${career.jurisdiction.name} (${posting.riskLabel.toLowerCase()}).`,
+        kind: "promotion",
+        severity: "good",
+    });
+    // Every Golden Star posting is, by definition, a repeat tenure at the top -- randomize a
+    // fresh difficulty flavor each time rather than ever reusing the last one.
+    if (posting.riskLabel === "Golden Star") {
+        const crisis = rollNationalCrisis(rng);
+        career.jurisdiction.activeCrisis = crisis;
+        career.eventLog.push({
+            id: nextId("evt"),
+            month: career.clockMonth,
+            title: `National Crisis: ${crisis.label}`,
+            description: crisis.description,
+            kind: "crisis",
+            severity: "warning",
+        });
+    }
+}
+export function startNextJobAfterEmergencyManager(career, rng) {
+    career.currentTier = "municipality";
+    career.jurisdiction = createPlayerJurisdiction("municipality", career.clockMonth, rng);
+    career.gameOverInfo = undefined;
+}
+export function petitionForReclassification(career) {
+    const j = career.jurisdiction;
+    if (j.reclassificationPending)
+        return { ok: false, reason: "A referendum is already pending." };
+    const next = isEligibleForReclassification(j);
+    if (!next)
+        return { ok: false, reason: "Population has not yet reached the next threshold." };
+    j.reclassificationPending = { targetStage: next, referendumMonth: career.clockMonth + 3 };
+    return { ok: true };
+}
+//# sourceMappingURL=engine.js.map

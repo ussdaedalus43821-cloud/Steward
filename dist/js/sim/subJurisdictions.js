@@ -1,0 +1,215 @@
+import { clamp } from "../utils/format.js";
+import { nextId } from "../utils/id.js";
+import { ratingForScore } from "./creditRating.js";
+import { GROWTH_STAGE_ORDER, POPULATION_THRESHOLDS } from "./constants.js";
+const NAME_PARTS_A = [
+    "Maple", "Cedar", "River", "Union", "Franklin", "Liberty", "Ridge", "Harbor", "Prairie",
+    "Fairview", "Lincoln", "Oakdale", "Summit", "Elm", "Meadow", "Stonebridge", "Highland",
+];
+const NAME_PARTS_B = {
+    municipality: ["ville", " Hollow", " Falls", "town", " Crossing", " Heights", " Junction", " Springs"],
+    county: [" County"],
+    state: [" State"],
+    country: [""],
+};
+function stageForPop(pop) {
+    for (const stage of GROWTH_STAGE_ORDER) {
+        const t = POPULATION_THRESHOLDS[stage];
+        if (pop >= t.min && pop < t.max)
+            return stage;
+    }
+    return "home_rule_city";
+}
+function generateName(tier, rng) {
+    const a = rng.pick(NAME_PARTS_A);
+    const b = rng.pick(NAME_PARTS_B[tier]);
+    return `${a}${b}`;
+}
+function initialFinanceFor(population, tier, rng) {
+    const perCapitaRevenue = tier === "municipality" ? rng.range(1300, 2600) : tier === "county" ? rng.range(500, 1100) : rng.range(4000, 9000);
+    const revenue = population * perCapitaRevenue;
+    const expenditures = revenue * rng.range(0.92, 1.04);
+    const fundBalance = revenue * rng.range(0.05, 0.22);
+    const debtToRevenue = rng.range(0.15, 0.9);
+    const score = clamp(50 + (fundBalance / revenue - 0.16) * 200 - (debtToRevenue - 0.4) * 40, 5, 98);
+    return {
+        revenue,
+        expenditures,
+        fundBalance,
+        fundBalanceRatio: fundBalance / expenditures,
+        creditRating: ratingForScore(score),
+        debtToRevenue,
+    };
+}
+export function generateSubJurisdictions(childTier, count, rng) {
+    const nodes = [];
+    for (let i = 0; i < count; i++) {
+        const population = childTier === "municipality"
+            ? Math.round(rng.range(800, 120000) * rng.range(0.3, 1))
+            : childTier === "county"
+                ? Math.round(rng.range(15000, 400000))
+                : Math.round(rng.range(500000, 12000000));
+        const vitals = {
+            infrastructureCondition: rng.range(35, 85),
+            maintenanceBacklog: rng.range(15, 55),
+            avgServiceQuality: rng.range(35, 80),
+            economicHealth: rng.range(50, 110),
+            assessedValuePerCapita: 55000,
+            taxCompetitivenessIndex: rng.range(80, 130),
+        };
+        nodes.push({
+            id: nextId("sub"),
+            name: generateName(childTier, rng),
+            tier: childTier,
+            stage: childTier === "municipality" ? stageForPop(population) : undefined,
+            population,
+            vitals,
+            finance: initialFinanceFor(population, childTier, rng),
+            activeCapitalProject: rng.chance(0.25),
+        });
+    }
+    return nodes;
+}
+export function simulateSubJurisdictionTick(node, economyMultiplier, rng) {
+    if (node.subJurisdictions && node.subJurisdictions.length > 0) {
+        for (const child of node.subJurisdictions)
+            simulateSubJurisdictionTick(child, economyMultiplier, rng);
+        node.population = node.subJurisdictions.reduce((s, c) => s + c.population, 0);
+    }
+    else {
+        const growthRate = clamp(0.008 +
+            ((node.vitals.avgServiceQuality - 50) / 100) * 0.02 +
+            ((node.vitals.infrastructureCondition - 55) / 100) * 0.012 +
+            rng.range(-0.01, 0.01), -0.05, 0.07);
+        node.population = Math.max(20, Math.round(node.population * (1 + growthRate)));
+        node.stage = node.tier === "municipality" ? stageForPop(node.population) : node.stage;
+    }
+    node.vitals.infrastructureCondition = clamp(node.vitals.infrastructureCondition + rng.range(-2.5, 1.8), 5, 100);
+    node.vitals.maintenanceBacklog = clamp(100 - node.vitals.infrastructureCondition, 0, 100);
+    node.vitals.avgServiceQuality = clamp(node.vitals.avgServiceQuality + rng.range(-2, 2), 5, 100);
+    node.vitals.economicHealth = clamp(node.vitals.economicHealth + (economyMultiplier - 1) * 25 + rng.range(-2, 2), 10, 150);
+    node.activeCapitalProject = rng.chance(0.2);
+    const perCapitaRevenue = node.finance.revenue / Math.max(1, node.population);
+    const revenue = node.population * perCapitaRevenue * economyMultiplier * rng.range(0.98, 1.03);
+    const expenditures = revenue * rng.range(0.9, 1.06);
+    node.finance.fundBalance += revenue - expenditures;
+    node.finance.revenue = revenue;
+    node.finance.expenditures = expenditures;
+    node.finance.debtToRevenue = clamp(node.finance.debtToRevenue + rng.range(-0.04, 0.04), 0, 2.2);
+    recomputeNodeFinanceDerived(node);
+}
+/** Recomputes fundBalanceRatio and the credit rating it feeds from the node's current finance
+ * fields -- the one formula both the regular tick and applyFederalGrant need to agree on. */
+export function recomputeNodeFinanceDerived(node) {
+    node.finance.fundBalanceRatio = node.finance.fundBalance / Math.max(1, node.finance.expenditures);
+    const score = clamp(50 + (node.finance.fundBalanceRatio - 0.16) * 200 - (node.finance.debtToRevenue - 0.4) * 40, 2, 99);
+    node.finance.creditRating = ratingForScore(score);
+}
+const GRANT_FUND_BALANCE_RATIO_TARGET = 0.2;
+// $1 of infrastructure grant per $X of a node's revenue raises its condition by 1 point, capped
+// per grant so one enormous transfer can't instantly max it out.
+const GRANT_INFRASTRUCTURE_POINTS_PER_REVENUE_SHARE = 40;
+const GRANT_INFRASTRUCTURE_CAP_PER_GRANT = 25;
+/** A recommended grant size: enough fiscal aid to bring the node's fund balance ratio up to a
+ * healthy benchmark (same 0.20 used elsewhere in the sim), or 0 if it's already there. Purely
+ * a UI suggestion -- the player can send any amount up to what they actually have on hand. */
+export function recommendedFederalGrant(node) {
+    const target = GRANT_FUND_BALANCE_RATIO_TARGET * node.finance.expenditures;
+    return Math.max(0, Math.round(target - node.finance.fundBalance));
+}
+/** Transfers cash from the player's own General Fund to a sub-jurisdiction -- a real
+ * intergovernmental expenditure (it leaves the player's books for good, same as any other
+ * spending), not an internal bookkeeping shuffle. Improves the node's fund balance directly
+ * (and so its credit rating, immediately -- no need to wait for the next tick) and its
+ * infrastructure condition proportionally, since nothing else in the sim ever touches a
+ * sub-jurisdiction's infrastructure. */
+export function applyFederalGrant(j, node, amount) {
+    if (!(amount > 0))
+        return { ok: false, reason: "Grant amount must be positive." };
+    if (amount > j.generalFund.fundBalance) {
+        return { ok: false, reason: "That's more than your General Fund balance." };
+    }
+    j.generalFund.fundBalance -= amount;
+    j.generalFund.ytdExpenditures += amount;
+    // Unlike an internal transfer to your own enterprise fund, this money leaves your government's
+    // books entirely and becomes another jurisdiction's asset, not yours -- a real expenditure that
+    // reduces net worth, exactly like any other spending.
+    j.netPositionTracked -= amount;
+    node.finance.fundBalance += amount;
+    const revenueShare = amount / Math.max(1, node.finance.revenue);
+    const infrastructureGain = clamp(revenueShare * GRANT_INFRASTRUCTURE_POINTS_PER_REVENUE_SHARE, 0, GRANT_INFRASTRUCTURE_CAP_PER_GRANT);
+    node.vitals.infrastructureCondition = clamp(node.vitals.infrastructureCondition + infrastructureGain, 0, 100);
+    node.vitals.maintenanceBacklog = clamp(100 - node.vitals.infrastructureCondition, 0, 100);
+    recomputeNodeFinanceDerived(node);
+    return { ok: true };
+}
+export function ensureSubJurisdictions(j, childTier, count, rng) {
+    if (!j.subJurisdictions) {
+        j.subJurisdictions = generateSubJurisdictions(childTier, count, rng);
+    }
+}
+export function expandNodeChildren(node, rng) {
+    if (node.subJurisdictions)
+        return;
+    if (node.tier === "country" || node.tier === "state" || node.tier === "county") {
+        const childTier = node.tier === "country" ? "state" : node.tier === "state" ? "county" : "municipality";
+        const count = childTier === "municipality" ? Math.round(rng.range(4, 8)) : Math.round(rng.range(5, 9));
+        node.subJurisdictions = generateSubJurisdictions(childTier, count, rng);
+    }
+}
+export function findNodeById(nodes, id) {
+    for (const node of nodes) {
+        if (node.id === id)
+            return node;
+        if (node.subJurisdictions) {
+            const found = findNodeById(node.subJurisdictions, id);
+            if (found)
+                return found;
+        }
+    }
+    return null;
+}
+const SEPARATIST_DISTRESS_SERVICE_QUALITY_CEILING = 35;
+const SEPARATIST_DISTRESS_RATINGS = ["CCC", "D"];
+const SEPARATIST_PRESSURE_YEARS_BEFORE_RISK = 3;
+const SEPARATIST_SECESSION_CHANCE_PER_YEAR = 0.08;
+const SEPARATIST_SECESSION_CHANCE_CAP = 0.35;
+/** A baseline mechanic for every country-tier jurisdiction (not a randomized crisis flavor --
+ * see crisis.ts for those): a state-tier sub-jurisdiction left badly neglected for years can
+ * actually secede. Only ever applied to a country's direct children. */
+export function applySeparatistPressure(j, rng, month) {
+    if (j.tier !== "country" || !j.subJurisdictions?.length)
+        return [];
+    const events = [];
+    const survivors = [];
+    for (const node of j.subJurisdictions) {
+        const distressed = node.vitals.avgServiceQuality < SEPARATIST_DISTRESS_SERVICE_QUALITY_CEILING &&
+            SEPARATIST_DISTRESS_RATINGS.includes(node.finance.creditRating);
+        node.separatistPressureYears = distressed
+            ? (node.separatistPressureYears ?? 0) + 1
+            : Math.max(0, (node.separatistPressureYears ?? 0) - 1);
+        if (node.separatistPressureYears >= SEPARATIST_PRESSURE_YEARS_BEFORE_RISK) {
+            const chance = clamp(SEPARATIST_SECESSION_CHANCE_PER_YEAR * (node.separatistPressureYears - (SEPARATIST_PRESSURE_YEARS_BEFORE_RISK - 1)), SEPARATIST_SECESSION_CHANCE_PER_YEAR, SEPARATIST_SECESSION_CHANCE_CAP);
+            if (rng.chance(chance)) {
+                events.push({
+                    id: nextId("evt"),
+                    month,
+                    title: "Separatist Movement Declares Independence",
+                    description: `${node.name}, neglected for years, has formally seceded from ${j.name}.`,
+                    kind: "secession",
+                    severity: "danger",
+                });
+                continue;
+            }
+        }
+        survivors.push(node);
+    }
+    j.subJurisdictions = survivors;
+    return events;
+}
+export function syncParentPopulationFromChildren(j) {
+    if (j.subJurisdictions && j.subJurisdictions.length > 0) {
+        j.population = j.subJurisdictions.reduce((s, c) => s + c.population, 0);
+    }
+}
+//# sourceMappingURL=subJurisdictions.js.map
