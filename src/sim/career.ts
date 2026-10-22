@@ -1,5 +1,7 @@
-import type { CareerState, CareerTier, PlayerJurisdiction, TenureRecord, YearSummary } from "../types.js";
+import type { CareerPosting, CareerState, CareerTier, PlayerJurisdiction, TenureRecord, YearSummary } from "../types.js";
 import { clamp } from "../utils/format.js";
+import { nextId } from "../utils/id.js";
+import type { Rng } from "../utils/random.js";
 import { CAREER_TIER_ORDER } from "./constants.js";
 import { averageServiceQuality } from "./departments.js";
 import { fundBalanceRatio } from "./fiscal.js";
@@ -78,4 +80,69 @@ export function reputationLossForEmergencyManager(): number {
 
 export function isEmergencyManagerTriggered(career: CareerState): boolean {
   return career.jurisdiction.oversight.level === "emergency" && career.jurisdiction.oversight.monthsAtCurrentLevel >= 6;
+}
+
+// Country has no higher tier to be promoted into, so sustained strong performance there instead
+// surfaces a standing list of other country-tier postings to apply to (bigger population, worse
+// starting pension funding -- more prestige for more risk), rather than looping the single
+// automatic promotion offer used for every tier below it.
+const COUNTRY_POSTING_TEMPLATES: Array<{
+  riskLabel: CareerPosting["riskLabel"];
+  scaleMultiplier: number;
+  pensionFundedRatio: number;
+  description: string;
+}> = [
+  {
+    riskLabel: "Stable",
+    scaleMultiplier: 1.3,
+    pensionFundedRatio: 0.72,
+    description: "A modestly larger republic with a comparable fiscal structure to what you're running now.",
+  },
+  {
+    riskLabel: "Elevated Risk",
+    scaleMultiplier: 2.2,
+    pensionFundedRatio: 0.58,
+    description: "A significantly larger population and a more strained, underfunded pension system.",
+  },
+  {
+    riskLabel: "High Risk",
+    scaleMultiplier: 3.5,
+    pensionFundedRatio: 0.42,
+    description: "A sprawling, high-stakes nation already deep underwater on its pension promises.",
+  },
+];
+
+const COUNTRY_POSTING_NAMES = [
+  "United Commonwealth",
+  "Continental Union",
+  "Sovereign Alliance",
+  "Pacifica Federation",
+  "Grand Coalition",
+  "Northern Compact",
+  "Meridian Republic",
+  "Unified Territories",
+];
+
+export function isEligibleForCareerPostings(j: PlayerJurisdiction): boolean {
+  if (j.tier !== "country") return false;
+  if (j.oversight.level !== "normal") return false;
+  const recent = j.scorecardHistory.slice(-SUSTAINED_YEARS_REQUIRED);
+  if (recent.length < SUSTAINED_YEARS_REQUIRED) return false;
+  return recent.every((y) => y.score >= SCORE_THRESHOLD);
+}
+
+export function generateCareerPostings(rng: Rng): CareerPosting[] {
+  const pool = [...COUNTRY_POSTING_NAMES];
+  return COUNTRY_POSTING_TEMPLATES.map((t) => {
+    const idx = pool.length ? Math.floor(rng.range(0, pool.length)) : 0;
+    const name = pool.length ? pool.splice(idx, 1)[0] : "Unnamed Republic";
+    return {
+      id: nextId("posting"),
+      name,
+      riskLabel: t.riskLabel,
+      scaleMultiplier: t.scaleMultiplier,
+      pensionFundedRatio: t.pensionFundedRatio,
+      description: t.description,
+    };
+  });
 }

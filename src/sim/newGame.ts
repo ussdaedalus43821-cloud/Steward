@@ -72,15 +72,32 @@ const TIER_JURISDICTION_NAMES: Record<CareerTier, string[]> = {
   country: ["Federated Republic"],
 };
 
-export function createPlayerJurisdiction(tier: CareerTier, currentMonth: number, rng: Rng): PlayerJurisdiction {
+export interface CreateJurisdictionOptions {
+  /** Scales the generated sub-jurisdiction count (and so population) up or down from the tier's
+   * normal range -- used for the bigger/riskier country-tier postings offered once a player has
+   * maxed out the regular promotion ladder. */
+  subJurisdictionMultiplier?: number;
+  /** Overrides the tier's default starting pension funded ratio. */
+  pensionFundedRatio?: number;
+  /** Overrides the randomly-picked jurisdiction name. */
+  nameOverride?: string;
+}
+
+export function createPlayerJurisdiction(
+  tier: CareerTier,
+  currentMonth: number,
+  rng: Rng,
+  options?: CreateJurisdictionOptions
+): PlayerJurisdiction {
   const tierConfig = getTierConfig(tier);
-  const name = rng.pick(TIER_JURISDICTION_NAMES[tier]);
+  const name = options?.nameOverride ?? rng.pick(TIER_JURISDICTION_NAMES[tier]);
 
   let population = TIER_START_POPULATION[tier]();
   let subJurisdictions;
   if (tierConfig.hasSubJurisdictions && tierConfig.subJurisdictionTier) {
-    const count =
+    const baseCount =
       tier === "county" ? Math.round(rng.range(5, 8)) : tier === "state" ? Math.round(rng.range(5, 9)) : Math.round(rng.range(6, 10));
+    const count = Math.max(1, Math.round(baseCount * (options?.subJurisdictionMultiplier ?? 1)));
     subJurisdictions = generateSubJurisdictions(tierConfig.subJurisdictionTier, count, rng);
     population = subJurisdictions.reduce((s, c) => s + c.population, 0);
   }
@@ -107,7 +124,10 @@ export function createPlayerJurisdiction(tier: CareerTier, currentMonth: number,
     bonds: [],
     enterpriseFunds: [],
     pension: tierConfig.hasPension
-      ? createPensionSystem(population * (tier === "state" ? 9000 : 14000), tier === "state" ? 0.68 : 0.78)
+      ? createPensionSystem(
+          population * (tier === "state" ? 9000 : 14000),
+          options?.pensionFundedRatio ?? (tier === "state" ? 0.68 : 0.78)
+        )
       : undefined,
     creditRating: "BBB",
     oversight: initialOversight(),

@@ -3,7 +3,7 @@ import { nextId } from "../utils/id.js";
 import { formatMonth } from "../utils/format.js";
 import { CLOCK_SPEED_MS_PER_MONTH } from "../sim/constants.js";
 import { createNewCareer } from "../sim/newGame.js";
-import { acceptPromotion, declinePromotion, petitionForReclassification, startNextJobAfterEmergencyManager, tickMonth, } from "../sim/engine.js";
+import { acceptPromotion, applyCareerPosting, declinePromotion, petitionForReclassification, startNextJobAfterEmergencyManager, tickMonth, } from "../sim/engine.js";
 import { cancelProject, fundProject, proposeProject, startProject, } from "../sim/capitalProjects.js";
 import { setDepartmentAllocation, updateDepartmentServiceQuality } from "../sim/departments.js";
 import { createEconDevProgram } from "../sim/growth.js";
@@ -180,6 +180,10 @@ class GameStore {
     declinePromotion() {
         declinePromotion(this.career);
         this.scheduleTick();
+        this.notify();
+    }
+    applyCareerPosting(postingId) {
+        applyCareerPosting(this.career, postingId, this.rng);
         this.notify();
     }
     continueAfterEmergencyManager() {

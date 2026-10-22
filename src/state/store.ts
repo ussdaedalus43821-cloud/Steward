@@ -14,6 +14,7 @@ import { CLOCK_SPEED_MS_PER_MONTH } from "../sim/constants.js";
 import { createNewCareer } from "../sim/newGame.js";
 import {
   acceptPromotion,
+  applyCareerPosting,
   declinePromotion,
   petitionForReclassification,
   startNextJobAfterEmergencyManager,
@@ -222,6 +223,11 @@ class GameStore {
   declinePromotion(): void {
     declinePromotion(this.career);
     this.scheduleTick();
+    this.notify();
+  }
+
+  applyCareerPosting(postingId: string): void {
+    applyCareerPosting(this.career, postingId, this.rng);
     this.notify();
   }
 

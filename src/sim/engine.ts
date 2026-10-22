@@ -5,6 +5,8 @@ import { amortizeBondsAnnual } from "./bonds.js";
 import { tickProjectsMonthly } from "./capitalProjects.js";
 import {
   buildTenureRecord,
+  generateCareerPostings,
+  isEligibleForCareerPostings,
   isEligibleForPromotion,
   isEmergencyManagerTriggered,
   recordYearSummary,
@@ -257,6 +259,21 @@ function runAnnualClose(career: CareerState, rng: Rng): GameEvent[] {
     });
   }
 
+  // Country has nowhere higher to be promoted into -- sustained strong performance there instead
+  // surfaces a standing list of other country-tier postings (see Settings) to apply to whenever
+  // the player wants, rather than a blocking modal that forces an immediate decision.
+  if (!career.careerPostings?.length && isEligibleForCareerPostings(j)) {
+    career.careerPostings = generateCareerPostings(rng);
+    events.push({
+      id: nextId("evt"),
+      month: career.clockMonth,
+      title: "New Career Opportunities",
+      description: `Other nations have taken notice of your work at ${j.name}. New postings are available whenever you're ready.`,
+      kind: "promotion",
+      severity: "good",
+    });
+  }
+
   return events;
 }
 
@@ -303,6 +320,33 @@ export function acceptPromotion(career: CareerState, rng: Rng): void {
 
 export function declinePromotion(career: CareerState): void {
   career.pendingPromotionOffer = undefined;
+}
+
+export function applyCareerPosting(career: CareerState, postingId: string, rng: Rng): void {
+  const j = career.jurisdiction;
+  if (j.tier !== "country") return;
+  const posting = career.careerPostings?.find((p) => p.id === postingId);
+  if (!posting) return;
+
+  const record = buildTenureRecord(j, "promoted");
+  record.months = career.clockMonth - j.foundedMonth;
+  career.tenureHistory.push(record);
+  career.reputation = Math.min(100, career.reputation + reputationGainForPromotion(j));
+
+  career.jurisdiction = createPlayerJurisdiction("country", career.clockMonth, rng, {
+    subJurisdictionMultiplier: posting.scaleMultiplier,
+    pensionFundedRatio: posting.pensionFundedRatio,
+    nameOverride: posting.name,
+  });
+  career.careerPostings = undefined;
+  career.eventLog.push({
+    id: nextId("evt"),
+    month: career.clockMonth,
+    title: "New Posting Accepted",
+    description: `You have been appointed to lead ${career.jurisdiction.name} (${posting.riskLabel.toLowerCase()}).`,
+    kind: "promotion",
+    severity: "good",
+  });
 }
 
 export function startNextJobAfterEmergencyManager(career: CareerState, rng: Rng): void {

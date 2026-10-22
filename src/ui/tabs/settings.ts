@@ -1,5 +1,5 @@
 import { store } from "../../state/store.js";
-import { formatMonth } from "../../utils/format.js";
+import { formatMonth, formatPercent } from "../../utils/format.js";
 import { TIER_LABELS } from "../../sim/constants.js";
 
 function escapeText(s: string): string {
@@ -42,6 +42,30 @@ export function renderSettings(container: HTMLElement): void {
         .join("")
     : `<tr><td colspan="5" class="locked-note">No checkpoints saved yet.</td></tr>`;
 
+  const postings = career.careerPostings ?? [];
+  const postingsCard = postings.length
+    ? `<div class="card" style="margin-top:16px;">
+        <h3>Career Opportunities</h3>
+        <p class="field-hint">Country is the top of the career ladder -- there's no further promotion. These are other nations looking for leadership instead. Accepting freezes ${escapeText(career.jurisdiction.name)} in your tenure history and hands you a fresh country, at the scale and risk shown below. No rush -- they'll keep until you're ready.</p>
+        <div class="grid grid-cols-2">
+          ${postings
+            .map(
+              (p) => `<div class="card">
+                <h3>${escapeText(p.name)}</h3>
+                <table>
+                  <tr><td>Risk</td><td class="num">${p.riskLabel}</td></tr>
+                  <tr><td>Scale</td><td class="num">~${p.scaleMultiplier.toFixed(1)}x current population</td></tr>
+                  <tr><td>Starting Pension Funded Ratio</td><td class="num">${formatPercent(p.pensionFundedRatio * 100)}</td></tr>
+                </table>
+                <p class="field-hint">${escapeText(p.description)}</p>
+                <button class="btn" data-accept-posting="${p.id}">Accept Posting</button>
+              </div>`
+            )
+            .join("")}
+        </div>
+      </div>`
+    : "";
+
   container.innerHTML = `
     <div class="two-col">
       <div class="card">
@@ -65,6 +89,7 @@ export function renderSettings(container: HTMLElement): void {
         <button class="btn danger" id="reset-btn">Start New Career (reset everything)</button>
       </div>
     </div>
+    ${postingsCard}
     <div class="card" style="margin-top:16px;">
       <h3>Checkpoints</h3>
       <p class="field-hint">Save a snapshot of exactly where you are now, so you can undo a mistake or try something different later without restarting the whole career. Checkpoints live only in this browser, separately from the regular autosave — up to 20 are kept.</p>
@@ -132,6 +157,13 @@ export function renderSettings(container: HTMLElement): void {
       }
     };
     reader.readAsText(file);
+  });
+
+  container.querySelectorAll<HTMLButtonElement>("button[data-accept-posting]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (!confirm("Accept this posting? Your current country will be frozen in your tenure history.")) return;
+      store.applyCareerPosting(btn.dataset.acceptPosting!);
+    });
   });
 
   container.querySelector("#reset-btn")?.addEventListener("click", () => {

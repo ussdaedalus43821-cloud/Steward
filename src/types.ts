@@ -260,6 +260,17 @@ export interface PromotionOffer {
   message: string;
 }
 
+/** A standing, non-blocking offer to take over a different country-tier jurisdiction -- the
+ * endgame equivalent of a promotion once there's no higher CareerTier left to be promoted into. */
+export interface CareerPosting {
+  id: string;
+  name: string;
+  riskLabel: "Stable" | "Elevated Risk" | "High Risk";
+  scaleMultiplier: number;
+  pensionFundedRatio: number;
+  description: string;
+}
+
 export interface GameOverInfo {
   jurisdictionName: string;
   tier: CareerTier;
@@ -276,6 +287,7 @@ export interface CareerState {
   clockSpeed: ClockSpeed;
   eventLog: GameEvent[];
   pendingPromotionOffer?: PromotionOffer;
+  careerPostings?: CareerPosting[];
   gameOverInfo?: GameOverInfo;
   economyCyclePosition: number; // 0..1 phase through boom/bust cycle
   economyMultiplier: number; // applied to cyclical revenue
