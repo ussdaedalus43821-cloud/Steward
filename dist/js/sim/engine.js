@@ -147,6 +147,7 @@ function runAnnualClose(career, rng) {
     const operatingGrantAward = Math.min(departmentExpenditure * OPERATING_GRANT_COVERAGE_RATE, j.operatingGrantPoolRemaining ?? 0);
     if (operatingGrantAward > 0) {
         j.generalFund.fundBalance += operatingGrantAward;
+        j.netPositionTracked += operatingGrantAward;
         j.operatingGrantPoolRemaining = (j.operatingGrantPoolRemaining ?? 0) - operatingGrantAward;
         events.push({
             id: nextId("evt"),

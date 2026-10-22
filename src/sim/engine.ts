@@ -202,6 +202,7 @@ function runAnnualClose(career: CareerState, rng: Rng): GameEvent[] {
   );
   if (operatingGrantAward > 0) {
     j.generalFund.fundBalance += operatingGrantAward;
+    j.netPositionTracked += operatingGrantAward;
     j.operatingGrantPoolRemaining = (j.operatingGrantPoolRemaining ?? 0) - operatingGrantAward;
     events.push({
       id: nextId("evt"),
