@@ -8,6 +8,7 @@ import { renderEconDev } from "./ui/tabs/econDev.js";
 import { renderFinancials } from "./ui/tabs/financials.js";
 import { renderSettings } from "./ui/tabs/settings.js";
 import { checkPromotionOffer, renderGameOverOverlay } from "./ui/onboarding.js";
+import { showWelcomeIfNeeded } from "./ui/welcome.js";
 import { installDevTools } from "./dev/devTools.js";
 installDevTools();
 let activeTab = "overview";
@@ -63,6 +64,7 @@ function render() {
 }
 store.subscribe(render);
 render();
+showWelcomeIfNeeded();
 window.addEventListener("keydown", (e) => {
     if (e.code !== "Space" || e.repeat)
         return;

@@ -3,6 +3,7 @@ import { formatMonth, formatPercent } from "../../utils/format.js";
 import { TIER_LABELS } from "../../sim/constants.js";
 import { icon } from "../icons.js";
 import { GAME_BUILD, GAME_BUILD_COMMIT, GAME_VERSION } from "../../version.js";
+import { showManual } from "../welcome.js";
 
 function escapeText(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
@@ -84,6 +85,7 @@ export function renderSettings(container: HTMLElement): void {
           ${crisisRow}
         </table>
         ${activeCrisis ? `<p class="field-hint" style="color:var(--warn);">${escapeText(activeCrisis.description)}</p>` : ""}
+        <button class="btn secondary" id="how-to-play-btn" style="margin-top:12px;">How to Play</button>
       </div>
       <div class="card">
         <h3>Save Data</h3>
@@ -123,6 +125,10 @@ export function renderSettings(container: HTMLElement): void {
       </table>
     </div>
   `;
+
+  container.querySelector("#how-to-play-btn")?.addEventListener("click", () => {
+    showManual();
+  });
 
   container.querySelector("#force-save-btn")?.addEventListener("click", () => {
     store.forceSave();
