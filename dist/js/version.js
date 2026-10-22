@@ -16,10 +16,11 @@
 // reads right before committing the bump, and bump GAME_VERSION only when the change actually
 // warrants a new player-facing version per the rule above.
 //
-// GAME_BUILD jumps from 30 to 38 here on purpose: the v1.0.0 release is being counted as the
-// project's 38th shipped iteration (the full history, not just what's in this git log), so this
-// is the one deliberate realignment -- it increments by exactly 1 per shipment from here on.
+// GAME_BUILD briefly jumped to 38 on an informal "~38 updates" estimate, then got corrected
+// here to the real count: `git log --oneline | wc -l` minus the 2 non-shipment commits (the
+// initial scaffold and a README-only tweak) = 31 real shipments before this one, making this
+// commit #32. The counter is exact from here on, not estimated.
 export const GAME_VERSION = "v1.0.0";
-export const GAME_BUILD = "Build 38";
-export const GAME_BUILD_COMMIT = "051dada";
+export const GAME_BUILD = "Build 32";
+export const GAME_BUILD_COMMIT = "12649ec";
 //# sourceMappingURL=version.js.map
