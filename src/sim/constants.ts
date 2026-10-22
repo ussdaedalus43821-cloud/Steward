@@ -85,6 +85,26 @@ export const FUND_BALANCE_BENCHMARK_RATIO = 0.16; // ~2 months operating expendi
 export const FUND_BALANCE_WARNING_RATIO = 0.05;
 export const FUND_BALANCE_CRISIS_RATIO = -0.02;
 
+// Real local-government overhead has economies of scale -- fixed costs (clerks, finance
+// office, council) spread across more residents as a jurisdiction grows, so the per-capita
+// cost needed for the same service level eases off rather than staying flat forever.
+export const ECONOMIES_OF_SCALE_REFERENCE_POP = 500;
+export const ECONOMIES_OF_SCALE_RATE = 0.18;
+export const ECONOMIES_OF_SCALE_FLOOR = 0.55;
+
+// A completed Administrative Building capital project (new records system, consolidated
+// facility, etc.) permanently trims General Admin's per-capita cost a bit -- capital
+// investment lowering operating overhead is an ordinary real-world effect, up to a cap.
+export const ADMIN_EFFICIENCY_PER_PROJECT = 0.03;
+export const ADMIN_EFFICIENCY_CAP = 0.2;
+
+// A separate, smaller pool modeling real operating-aid programs (state operating aid, COPS
+// hiring grants) that offset a share of department payroll each year, unlike the capital
+// grant pool which only ever pays for infrastructure.
+export const OPERATING_GRANT_ANNUAL_RATE = 0.02;
+export const OPERATING_GRANT_POOL_CAP_MULTIPLE = 1;
+export const OPERATING_GRANT_COVERAGE_RATE = 0.15;
+
 export const MONTHS_PER_YEAR = 12;
 
 export const CLOCK_SPEED_MS_PER_MONTH: Record<number, number> = {

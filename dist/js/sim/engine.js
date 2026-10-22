@@ -2,7 +2,7 @@ import { nextId } from "../utils/id.js";
 import { amortizeBondsAnnual } from "./bonds.js";
 import { tickProjectsMonthly } from "./capitalProjects.js";
 import { buildTenureRecord, isEligibleForPromotion, isEmergencyManagerTriggered, recordYearSummary, reputationGainForPromotion, reputationLossForEmergencyManager, } from "./career.js";
-import { getTierConfig, MONTHS_PER_YEAR } from "./constants.js";
+import { ADMIN_EFFICIENCY_CAP, ADMIN_EFFICIENCY_PER_PROJECT, getTierConfig, MONTHS_PER_YEAR, OPERATING_GRANT_ANNUAL_RATE, OPERATING_GRANT_COVERAGE_RATE, OPERATING_GRANT_POOL_CAP_MULTIPLE, } from "./constants.js";
 import { ensureDepartmentBudgets, tickDepartmentRamps, updateDepartmentServiceQuality } from "./departments.js";
 import { computeCreditRating } from "./creditRating.js";
 import { advanceEconomyCycle, tickRandomEvents } from "./events.js";
@@ -27,6 +27,9 @@ export function tickMonth(career, rng) {
     const projectResult = tickProjectsMonthly(j, career.clockMonth, rng);
     for (const completed of projectResult.completed) {
         j.vitals.infrastructureCondition = Math.min(100, j.vitals.infrastructureCondition + 7);
+        if (completed.category === "Administrative Building") {
+            j.adminEfficiencyBonus = Math.min(ADMIN_EFFICIENCY_CAP, (j.adminEfficiencyBonus ?? 0) + ADMIN_EFFICIENCY_PER_PROJECT);
+        }
         events.push({
             id: nextId("evt"),
             month: career.clockMonth,
@@ -137,6 +140,26 @@ function runAnnualClose(career, rng) {
     const annualGrantAllocation = j.generalFund.lastYearRevenue * 0.04;
     const grantPoolCap = j.generalFund.lastYearRevenue * 3;
     j.grantPoolRemaining = Math.min(j.grantPoolRemaining + annualGrantAllocation, grantPoolCap);
+    // Operating grant pool: separate from the capital grant pool above, this models real
+    // state/federal operating-aid programs (state operating aid, COPS hiring grants) that
+    // offset a share of department payroll each year instead of paying for capital projects.
+    const departmentExpenditure = j.departments.reduce((sum, d) => sum + d.allocated, 0);
+    const operatingGrantAward = Math.min(departmentExpenditure * OPERATING_GRANT_COVERAGE_RATE, j.operatingGrantPoolRemaining ?? 0);
+    if (operatingGrantAward > 0) {
+        j.generalFund.fundBalance += operatingGrantAward;
+        j.operatingGrantPoolRemaining = (j.operatingGrantPoolRemaining ?? 0) - operatingGrantAward;
+        events.push({
+            id: nextId("evt"),
+            month: career.clockMonth,
+            title: "Operating Grant Received",
+            description: `State/federal operating aid covered $${Math.round(operatingGrantAward).toLocaleString()} of this year's department budget.`,
+            kind: "economy",
+            severity: "good",
+        });
+    }
+    const operatingGrantAllocation = j.generalFund.lastYearRevenue * OPERATING_GRANT_ANNUAL_RATE;
+    const operatingGrantCap = j.generalFund.lastYearRevenue * OPERATING_GRANT_POOL_CAP_MULTIPLE;
+    j.operatingGrantPoolRemaining = Math.min((j.operatingGrantPoolRemaining ?? 0) + operatingGrantAllocation, operatingGrantCap);
     if (isEmergencyManagerTriggered(career)) {
         const record = buildTenureRecord(j, "emergency_manager");
         record.months = career.clockMonth - j.foundedMonth;

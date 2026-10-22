@@ -80,6 +80,8 @@ export function createPlayerJurisdiction(tier, currentMonth, rng) {
         capitalAssetsNetValue: 0,
         netPositionTracked: 0,
         grantPoolRemaining: tier === "municipality" ? 200000 : tier === "county" ? 1500000 : tier === "state" ? 12000000 : 0,
+        operatingGrantPoolRemaining: tier === "municipality" ? 50000 : tier === "county" ? 400000 : tier === "state" ? 3000000 : 0,
+        adminEfficiencyBonus: 0,
         capitalProjects: [],
         bonds: [],
         enterpriseFunds: [],

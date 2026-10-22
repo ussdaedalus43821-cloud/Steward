@@ -5,6 +5,27 @@ import { dualInputRow, progressBar, wireDualInputs } from "../shared.js";
 export function renderDepartments(container: HTMLElement): void {
   const j = store.career.jurisdiction;
 
+  const hasGeneralAdmin = j.departments.some((d) => d.key === "generalAdmin");
+  const adminEfficiencyPct = (j.adminEfficiencyBonus ?? 0) * 100;
+  const reliefCard = `<div class="card">
+    <h3>Operating Relief</h3>
+    <table>
+      <tr><td>Operating Grant Pool</td><td class="num">${formatMoney(j.operatingGrantPoolRemaining ?? 0)}</td></tr>
+      ${
+        hasGeneralAdmin
+          ? `<tr><td>Admin Efficiency Bonus</td><td class="num">-${adminEfficiencyPct.toFixed(0)}% on General Admin cost</td></tr>`
+          : ""
+      }
+    </table>
+    <div class="field-hint">
+      Separate from the capital grant pool, this offsets department payroll automatically each year (state/federal operating aid) — no action needed. ${
+        hasGeneralAdmin
+          ? "Completing an Administrative Building capital project permanently trims General Admin's per-capita cost a bit further, up to a cap."
+          : ""
+      } Per-capita department cost also eases somewhat as your population grows, reflecting real economies of scale in local government overhead.
+    </div>
+  </div>`;
+
   const deptCards = j.departments
     .map((d) => {
       const perCapita = j.population > 0 ? d.allocated / j.population : 0;
@@ -64,7 +85,7 @@ export function renderDepartments(container: HTMLElement): void {
     )
     .join("");
 
-  container.innerHTML = `<div class="grid grid-cols-2">${deptCards}${pensionCard}${enterpriseCards}</div>`;
+  container.innerHTML = `<div class="grid grid-cols-2">${reliefCard}${deptCards}${pensionCard}${enterpriseCards}</div>`;
 
   wireDualInputs(container, "dept", (key, value) => {
     store.setDepartmentAllocation(key, value);

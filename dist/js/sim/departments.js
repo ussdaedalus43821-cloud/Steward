@@ -1,5 +1,5 @@
 import { clamp } from "../utils/format.js";
-import { stageAtLeast } from "./constants.js";
+import { ECONOMIES_OF_SCALE_FLOOR, ECONOMIES_OF_SCALE_RATE, ECONOMIES_OF_SCALE_REFERENCE_POP, stageAtLeast, } from "./constants.js";
 export const DEPARTMENT_BASELINE_PER_CAPITA = {
     generalAdmin: 1200,
     publicWorks: 160,
@@ -33,8 +33,7 @@ export function ensureDepartmentBudgets(j, tierConfig, rampIn = false) {
     const existingKeys = new Set(j.departments.map((d) => d.key));
     for (const cfg of unlocked) {
         if (!existingKeys.has(cfg.key)) {
-            const baseline = DEPARTMENT_BASELINE_PER_CAPITA[cfg.key] ?? 100;
-            const target = baseline * j.population * 0.9;
+            const target = effectiveBaseline(j, cfg.key) * j.population * 0.9;
             const dept = {
                 key: cfg.key,
                 label: cfg.label,
@@ -72,9 +71,21 @@ function diminishingReturns(spendPerCapita, baseline) {
         return 50;
     return 100 * (spendPerCapita / (spendPerCapita + baseline));
 }
+/** Fixed administrative costs spread across more residents as a jurisdiction grows, so the
+ * per-capita cost needed for a given service level eases off instead of staying flat. */
+export function economiesOfScaleFactor(population) {
+    const ratio = Math.max(population, ECONOMIES_OF_SCALE_REFERENCE_POP) / ECONOMIES_OF_SCALE_REFERENCE_POP;
+    const factor = 1 - ECONOMIES_OF_SCALE_RATE * Math.log10(ratio);
+    return clamp(factor, ECONOMIES_OF_SCALE_FLOOR, 1);
+}
+function effectiveBaseline(j, key) {
+    const baseline = DEPARTMENT_BASELINE_PER_CAPITA[key] ?? 100;
+    const scaled = baseline * economiesOfScaleFactor(j.population);
+    return key === "generalAdmin" ? scaled * (1 - (j.adminEfficiencyBonus ?? 0)) : scaled;
+}
 export function updateDepartmentServiceQuality(j) {
     for (const dept of j.departments) {
-        const baseline = DEPARTMENT_BASELINE_PER_CAPITA[dept.key] ?? 100;
+        const baseline = effectiveBaseline(j, dept.key);
         const perCapita = j.population > 0 ? dept.allocated / j.population : 0;
         dept.serviceQuality = clamp(diminishingReturns(perCapita, baseline), 0, 100);
         dept.staffing = Math.max(1, Math.round(dept.allocated / 65000));

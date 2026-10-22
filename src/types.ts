@@ -208,6 +208,12 @@ export interface PlayerJurisdiction {
   capitalAssetsNetValue: number;
   netPositionTracked: number;
   grantPoolRemaining: number;
+  // Separate from grantPoolRemaining -- this pool offsets department operating costs
+  // (state/federal operating aid), rather than capital projects.
+  operatingGrantPoolRemaining: number;
+  // 0 to ADMIN_EFFICIENCY_CAP. Earned permanently from completed Administrative Building
+  // capital projects; trims General Admin's effective per-capita baseline cost.
+  adminEfficiencyBonus: number;
   capitalProjects: CapitalProject[];
   bonds: Bond[];
   enterpriseFunds: EnterpriseFund[];
