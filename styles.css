@@ -309,3 +309,7 @@ button.btn.small { padding: 5px 11px; font-size: 0.78rem; }
 }
 .golden-star-icon { color: var(--gold); display: inline-flex; vertical-align: -2px; margin-right: 6px; }
 .golden-star-icon svg { fill: var(--gold); stroke: var(--gold); }
+
+/* ---------- Distressed sub-jurisdictions (CCC/D credit) ---------- */
+.node-distressed { border-color: var(--bad); box-shadow: 0 0 0 1px rgba(194, 43, 43, 0.3); }
+.node-distressed:hover { box-shadow: 0 0 0 1px var(--bad), var(--shadow-lift); }

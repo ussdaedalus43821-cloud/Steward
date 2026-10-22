@@ -7,7 +7,7 @@ import { acceptPromotion, applyCareerPosting, declinePromotion, petitionForRecla
 import { cancelProject, fundProject, proposeProject, startProject, } from "../sim/capitalProjects.js";
 import { setDepartmentAllocation, updateDepartmentServiceQuality } from "../sim/departments.js";
 import { createEconDevProgram } from "../sim/growth.js";
-import { expandNodeChildren, findNodeById } from "../sim/subJurisdictions.js";
+import { applyFederalGrant, expandNodeChildren, findNodeById } from "../sim/subJurisdictions.js";
 import { computeBalanceCheck } from "../sim/fiscal.js";
 const SAVE_KEY = "steward_save_v1";
 const SAVE_VERSION = 1;
@@ -207,6 +207,18 @@ class GameStore {
             expandNodeChildren(node, this.rng);
             this.notify();
         }
+    }
+    sendFederalGrant(nodeId, amount) {
+        const roots = this.career.jurisdiction.subJurisdictions;
+        if (!roots)
+            return { ok: false, reason: "No sub-jurisdictions." };
+        const node = findNodeById(roots, nodeId);
+        if (!node)
+            return { ok: false, reason: "That jurisdiction no longer exists." };
+        const result = applyFederalGrant(this.career.jurisdiction, node, amount);
+        if (result.ok)
+            this.notify();
+        return result;
     }
     // ---- Save management ----
     resetCareer() {

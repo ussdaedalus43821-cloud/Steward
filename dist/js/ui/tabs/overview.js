@@ -6,6 +6,11 @@ import { icon } from "../icons.js";
 import { STAGE_LABELS, TIER_LABELS } from "../../sim/constants.js";
 import { isEligibleForReclassification } from "../../sim/growth.js";
 import { fundBalanceRatio } from "../../sim/fiscal.js";
+import { recommendedFederalGrant } from "../../sim/subJurisdictions.js";
+const DISTRESSED_RATINGS = new Set(["CCC", "D"]);
+function isDistressed(node) {
+    return DISTRESSED_RATINGS.has(node.finance.creditRating);
+}
 let drillPath = [];
 function resolvePathNodes(roots, path) {
     const resolved = [];
@@ -30,11 +35,14 @@ function renderNodeCard(node) {
         size: "small",
     });
     const subLabel = node.stage ? STAGE_LABELS[node.stage] : TIER_LABELS[node.tier];
-    return `<div class="node-card" data-node-id="${node.id}">
+    const distressed = isDistressed(node);
+    const secessionRisk = (node.separatistPressureYears ?? 0) >= 2;
+    return `<div class="node-card${distressed ? " node-distressed" : ""}" data-node-id="${node.id}">
     ${svg}
     <div class="node-name">${escapeName(node.name)}</div>
     <div class="node-sub">${subLabel} · ${formatPopulation(node.population)}</div>
     <div class="node-sub">${ratingBadge(node.finance.creditRating)}</div>
+    ${secessionRisk ? `<div class="node-sub" style="color:var(--bad);font-weight:700;">${node.separatistPressureYears}yr neglected</div>` : ""}
   </div>`;
 }
 function escapeName(s) {
@@ -63,7 +71,12 @@ function renderBreadcrumbs(j, path) {
     });
     return `<div class="breadcrumbs">${crumbs.join("")}</div>`;
 }
-function renderNodeDetail(node) {
+function renderNodeDetail(j, node) {
+    const distressed = isDistressed(node);
+    const secessionYears = node.separatistPressureYears ?? 0;
+    const recommended = recommendedFederalGrant(node);
+    const maxGrant = Math.max(0, Math.floor(j.generalFund.fundBalance));
+    const suggested = Math.min(recommended, maxGrant);
     return `<div class="two-col">
     <div class="card">
       <h3>${escapeName(node.name)}</h3>
@@ -90,8 +103,28 @@ function renderNodeDetail(node) {
         <tr><td>Infrastructure Condition</td><td class="num">${node.vitals.infrastructureCondition.toFixed(0)}/100</td></tr>
         <tr><td>Service Quality</td><td class="num">${node.vitals.avgServiceQuality.toFixed(0)}/100</td></tr>
       </table>
-      <p class="field-hint">This is a lightweight simulated peer jurisdiction, not directly managed by you.</p>
+      <p class="field-hint">This is a lightweight simulated peer jurisdiction, not directly managed by you. Nothing bails it out automatically -- no bankruptcy process exists for it, it just keeps running the numbers${secessionYears > 0
+        ? `, and it has gone <strong style="color:var(--bad);">${secessionYears} consecutive year${secessionYears === 1 ? "" : "s"}</strong> neglected enough to risk seceding outright.`
+        : "."}</p>
     </div>
+  </div>
+  <div class="card" style="margin-top:16px;${distressed ? "border-color:var(--bad);box-shadow:0 0 0 1px var(--bad);" : ""}">
+    <h3>Federal Grant${distressed ? ` <span class="badge bad">Junk Status</span>` : ""}</h3>
+    <p class="field-hint">Send a one-time transfer from your own General Fund (currently ${formatMoney(j.generalFund.fundBalance)}) to this jurisdiction. It's real spending on your books -- it leaves your net position for good -- but it lands directly in their fund balance (improving their credit rating immediately) and repairs some of their infrastructure.</p>
+    ${maxGrant > 0
+        ? `<div class="field-row">
+            <label class="field">Grant Amount${recommended > 0 ? ` <span style="font-weight:400;color:var(--ink-faint);">(suggested: ${formatMoney(recommended)} to reach a healthy fund balance)</span>` : ""}</label>
+            ${dualInputRowLocal(suggested, maxGrant)}
+          </div>
+          <button class="btn" id="send-grant-btn" data-node-id="${node.id}">Send Federal Grant</button>`
+        : `<p class="locked-note">Your General Fund is empty -- nothing to send.</p>`}
+  </div>`;
+}
+function dualInputRowLocal(value, max) {
+    const step = Math.max(1, Math.round(max / 1000));
+    return `<div class="dual-input">
+    <input type="range" min="0" max="${max}" step="${step}" value="${value}" id="grant-amount-range" />
+    <input type="number" min="0" max="${max}" step="${step}" value="${value}" id="grant-amount-number" class="number-twin" />
   </div>`;
 }
 export function renderOverview(container) {
@@ -112,12 +145,29 @@ export function renderOverview(container) {
     }
     container.innerHTML = `
     ${renderBreadcrumbs(j, pathNodes)}
-    ${pathNodes.length > 0 ? renderNodeDetail(pathNodes[pathNodes.length - 1]) : renderTopSummary(j)}
+    ${pathNodes.length > 0 ? renderNodeDetail(j, pathNodes[pathNodes.length - 1]) : renderTopSummary(j)}
     <div class="section-title" style="margin-top:18px;">
       ${pathNodes.length > 0 ? "Sub-jurisdictions" : `${TIER_LABELS[j.tier]} Overview — Sub-jurisdictions`}
     </div>
     ${renderNodeGrid(currentLevelNodes)}
   `;
+    const rangeInput = container.querySelector("#grant-amount-range");
+    const numberInput = container.querySelector("#grant-amount-number");
+    [rangeInput, numberInput].forEach((input) => {
+        input?.addEventListener("input", () => {
+            if (rangeInput)
+                rangeInput.value = input.value;
+            if (numberInput)
+                numberInput.value = input.value;
+        });
+    });
+    container.querySelector("#send-grant-btn")?.addEventListener("click", (e) => {
+        const btn = e.currentTarget;
+        const amount = Number(numberInput?.value ?? 0);
+        const result = store.sendFederalGrant(btn.dataset.nodeId, amount);
+        if (!result.ok)
+            alert(result.reason ?? "Could not send that grant.");
+    });
     container.querySelectorAll(".node-card[data-node-id]").forEach((elm) => {
         elm.addEventListener("click", () => {
             drillPath.push(elm.dataset.nodeId);

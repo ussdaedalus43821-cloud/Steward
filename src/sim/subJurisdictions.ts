@@ -115,15 +115,73 @@ export function simulateSubJurisdictionTick(node: SimJurisdiction, economyMultip
   node.finance.fundBalance += revenue - expenditures;
   node.finance.revenue = revenue;
   node.finance.expenditures = expenditures;
-  node.finance.fundBalanceRatio = node.finance.fundBalance / Math.max(1, expenditures);
   node.finance.debtToRevenue = clamp(node.finance.debtToRevenue + rng.range(-0.04, 0.04), 0, 2.2);
 
+  recomputeNodeFinanceDerived(node);
+}
+
+/** Recomputes fundBalanceRatio and the credit rating it feeds from the node's current finance
+ * fields -- the one formula both the regular tick and applyFederalGrant need to agree on. */
+export function recomputeNodeFinanceDerived(node: SimJurisdiction): void {
+  node.finance.fundBalanceRatio = node.finance.fundBalance / Math.max(1, node.finance.expenditures);
   const score = clamp(
     50 + (node.finance.fundBalanceRatio - 0.16) * 200 - (node.finance.debtToRevenue - 0.4) * 40,
     2,
     99
   );
   node.finance.creditRating = ratingForScore(score);
+}
+
+const GRANT_FUND_BALANCE_RATIO_TARGET = 0.2;
+// $1 of infrastructure grant per $X of a node's revenue raises its condition by 1 point, capped
+// per grant so one enormous transfer can't instantly max it out.
+const GRANT_INFRASTRUCTURE_POINTS_PER_REVENUE_SHARE = 40;
+const GRANT_INFRASTRUCTURE_CAP_PER_GRANT = 25;
+
+/** A recommended grant size: enough fiscal aid to bring the node's fund balance ratio up to a
+ * healthy benchmark (same 0.20 used elsewhere in the sim), or 0 if it's already there. Purely
+ * a UI suggestion -- the player can send any amount up to what they actually have on hand. */
+export function recommendedFederalGrant(node: SimJurisdiction): number {
+  const target = GRANT_FUND_BALANCE_RATIO_TARGET * node.finance.expenditures;
+  return Math.max(0, Math.round(target - node.finance.fundBalance));
+}
+
+export interface FederalGrantResult {
+  ok: boolean;
+  reason?: string;
+}
+
+/** Transfers cash from the player's own General Fund to a sub-jurisdiction -- a real
+ * intergovernmental expenditure (it leaves the player's books for good, same as any other
+ * spending), not an internal bookkeeping shuffle. Improves the node's fund balance directly
+ * (and so its credit rating, immediately -- no need to wait for the next tick) and its
+ * infrastructure condition proportionally, since nothing else in the sim ever touches a
+ * sub-jurisdiction's infrastructure. */
+export function applyFederalGrant(j: PlayerJurisdiction, node: SimJurisdiction, amount: number): FederalGrantResult {
+  if (!(amount > 0)) return { ok: false, reason: "Grant amount must be positive." };
+  if (amount > j.generalFund.fundBalance) {
+    return { ok: false, reason: "That's more than your General Fund balance." };
+  }
+
+  j.generalFund.fundBalance -= amount;
+  j.generalFund.ytdExpenditures += amount;
+  // Unlike an internal transfer to your own enterprise fund, this money leaves your government's
+  // books entirely and becomes another jurisdiction's asset, not yours -- a real expenditure that
+  // reduces net worth, exactly like any other spending.
+  j.netPositionTracked -= amount;
+
+  node.finance.fundBalance += amount;
+  const revenueShare = amount / Math.max(1, node.finance.revenue);
+  const infrastructureGain = clamp(
+    revenueShare * GRANT_INFRASTRUCTURE_POINTS_PER_REVENUE_SHARE,
+    0,
+    GRANT_INFRASTRUCTURE_CAP_PER_GRANT
+  );
+  node.vitals.infrastructureCondition = clamp(node.vitals.infrastructureCondition + infrastructureGain, 0, 100);
+  node.vitals.maintenanceBacklog = clamp(100 - node.vitals.infrastructureCondition, 0, 100);
+  recomputeNodeFinanceDerived(node);
+
+  return { ok: true };
 }
 
 export function ensureSubJurisdictions(j: PlayerJurisdiction, childTier: CareerTier, count: number, rng: Rng): void {
