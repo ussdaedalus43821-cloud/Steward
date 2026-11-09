@@ -1,5 +1,10 @@
 # Steward
 
+> **Dependency-free TypeScript.** Plain TypeScript compiled by `tsc` to ES
+> modules that the browser loads directly from `index.html`: no framework,
+> no bundler, and no dependencies of any kind (`package.json` lists none).
+> Nothing is fetched from a CDN; it runs entirely offline once loaded.
+
 **Steward** is a browser-based career simulation about running the *finances* of a government — not campaigning for one. You never give a speech, never run an ad, never debate an opponent. You balance budgets, fund departments, issue bonds, and keep the books honest, starting as a hamlet's first administrator and, if you're good enough, working your way up to running an entire country.
 
 Play it live, or read on for the full manual below.
